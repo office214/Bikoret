@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ביקורת נוכחות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #eef1f5;
+    --text: #18202b;
+    --muted: #5a6575;
+    --border: #d5dbe3;
+    --focus: #0b57d0;
+    --brand: #1d3557;
+    --s-present: #1b7f3b;
+    --s-bishuv: #1f5fbf;
+    --s-chaser: #c62828;
+    --s-loana: #9a5b00;
+    --s-nirsham: #6a3fb5;
+    --ok: #1b7f3b;
+    --bad: #c62828;
+    --radius: 12px;
+    --fs: 17px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151c; --surface: #19212b; --surface-2: #222c38; --text: #eef2f7; --muted: #a9b4c2;
+      --border: #334152; --focus: #8ab4f8; --brand: #9cc3ff;
+      --s-present: #4cc274; --s-bishuv: #6aa5ff; --s-chaser: #ff6b6b; --s-loana: #f0b44c; --s-nirsham: #b896ff;
+      --ok: #4cc274; --bad: #ff6b6b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151c; --surface: #19212b; --surface-2: #222c38; --text: #eef2f7; --muted: #a9b4c2;
+    --border: #334152; --focus: #8ab4f8; --brand: #9cc3ff;
+    --s-present: #4cc274; --s-bishuv: #6aa5ff; --s-chaser: #ff6b6b; --s-loana: #f0b44c; --s-nirsham: #b896ff;
+    --ok: #4cc274; --bad: #ff6b6b;
+  }
+  :root[data-size="large"] { --fs: 20px; }
+  :root[data-size="xlarge"] { --fs: 23px; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Assistant", "Segoe UI", Arial, sans-serif; font-size: var(--fs); line-height: 1.4;
+    padding-bottom: 84px;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  header.top {
+    position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 16px 8px;
+  }
+  .top-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .top-row h1 { font-size: 1.25em; margin: 0; color: var(--brand); font-weight: 800; }
+  .meta { color: var(--muted); font-size: .9em; }
+  .spacer { flex: 1; }
+  .sync { font-size: .85em; padding: 3px 10px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+  .sync.err { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); font-weight: 700; }
+  .icon-btn {
+    min-width: 44px; min-height: 44px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer; font-weight: 700;
+  }
+
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0 2px; scrollbar-width: thin; }
+  .chip {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
+    padding: 6px 14px; border-radius: 99px; border: 2px solid var(--border); background: var(--surface);
+    cursor: pointer; font-weight: 600;
+  }
+  .chip .num { font-weight: 800; font-size: 1.1em; }
+  .chip[aria-pressed="true"] { border-color: var(--c, var(--brand)); background: color-mix(in srgb, var(--c, var(--brand)) 14%, var(--surface)); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); display: inline-block; }
+
+  .toolbar { display: flex; gap: 8px; padding: 8px 0 0; flex-wrap: wrap; }
+  .search {
+    flex: 1 1 200px; min-height: 46px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .btn {
+    min-height: 46px; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer; font-weight: 700;
+  }
+  .btn.primary { background: var(--brand); color: var(--surface); border-color: var(--brand); }
+  .btn.danger { background: var(--bad); color: #fff; border-color: var(--bad); }
+  .btn.ok { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  main { padding: 12px 16px; max-width: 1100px; margin: 0 auto; }
+  .view[hidden] { display: none; }
+
+  .letter-head { margin: 14px 4px 6px; font-weight: 800; color: var(--muted); font-size: .95em; }
+  .students { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  @media (min-width: 900px) { .students { grid-template-columns: 1fr 1fr; } }
+  .stu {
+    background: var(--surface); border: 1px solid var(--border); border-inline-start: 6px solid var(--c, var(--border));
+    border-radius: var(--radius); padding: 10px 12px;
+  }
+  .stu-name { font-weight: 700; margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; }
+  .stu-name .cur { font-size: .8em; font-weight: 700; color: var(--c); }
+  .seg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .seg button {
+    min-height: 48px; border-radius: 10px; border: 2px solid var(--c); background: transparent;
+    color: var(--c); font-weight: 700; cursor: pointer; padding: 4px 2px; font-size: .9em;
+  }
+  .seg button[aria-checked="true"] { background: var(--c); color: #fff; }
+  :root[data-theme="dark"] .seg button[aria-checked="true"] { color: #10151c; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg button[aria-checked="true"] { color: #10151c; } }
+  .seg button[aria-checked="true"]::before { content: "✓ "; }
+  @media (max-width: 420px) { .seg button { font-size: .8em; } }
+
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 12px; font-size: 1.15em; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+  label.f input, label.f select {
+    min-height: 46px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2);
+  }
+  .row-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .hint { color: var(--muted); font-size: .9em; margin: 6px 0 0; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .92em; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th { background: var(--surface-2); position: sticky; top: 0; font-weight: 700; }
+  tbody tr.click { cursor: pointer; }
+  tbody tr.click:hover, tbody tr.click:focus-visible { background: var(--surface-2); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-weight: 700; font-size: .9em; }
+  .badge.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+  .badge.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+  .st { font-weight: 700; color: var(--c); }
+
+  nav.tabs {
+    position: fixed; bottom: 0; inset-inline: 0; z-index: 30; display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--surface); border-top: 1px solid var(--border);
+  }
+  nav.tabs button {
+    min-height: 64px; border: 0; background: transparent; cursor: pointer; font-weight: 700; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  }
+  nav.tabs button .ic { font-size: 1.3em; }
+  nav.tabs button[aria-selected="true"] { color: var(--brand); box-shadow: inset 0 3px 0 var(--brand); }
+
+  .toast {
+    position: fixed; bottom: 80px; inset-inline: 16px; margin: 0 auto; max-width: 520px; z-index: 50;
+    background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 12px; display: flex; gap: 12px;
+    align-items: center; box-shadow: 0 6px 24px rgba(0,0,0,.25);
+  }
+  .toast[hidden] { display: none; }
+  .toast button { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 8px; min-height: 40px; padding: 4px 12px; cursor: pointer; font-weight: 700; }
+
+  dialog { border: 0; border-radius: 16px; padding: 0; width: min(560px, calc(100vw - 32px)); background: var(--surface); color: var(--text); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  .dlg-body { padding: 20px; }
+  .dlg-body h2 { margin-top: 0; }
+  .dlg-actions { display: flex; gap: 10px; justify-content: flex-start; padding: 0 20px 20px; flex-wrap: wrap; }
+  .loading { text-align: center; padding: 50px; color: var(--muted); }
+
+  /* הדפסה */
+  #printArea h2 { text-align: center; margin: 8px 0 12px; }
+  #printArea table { font-size: 13px; }
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff; color: #000; padding: 0; font-size: 13px; }
+    header.top, nav.tabs, .no-print, .toast { display: none !important; }
+    main { padding: 0; max-width: none; }
+    .view { display: none !important; }
+    #view-print { display: block !important; }
+    .table-wrap { border: 0; overflow: visible; }
+    th { position: static; background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th, td { border: 1px solid #999; padding: 4px 6px; }
+    tr { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<header class="top" id="topbar">
+  <div class="top-row">
+    <h1 id="title">ביקורת נוכחות</h1>
+    <span class="meta" id="metaLine"></span>
+    <span class="spacer"></span>
+    <span class="sync" id="sync" role="status" aria-live="polite">טוען…</span>
+    <button class="icon-btn" id="sizeBtn" aria-label="הגדלת גופן" title="גודל גופן">א+</button>
+    <button class="icon-btn" id="themeBtn" aria-label="מצב תצוגה כהה/בהיר" title="כהה/בהיר">🌙</button>
+  </div>
+  <div id="reviewTools">
+    <div class="chips" role="group" aria-label="סינון לפי סטטוס" id="chips"></div>
+    <div class="toolbar">
+      <label class="sr-only" for="search">חיפוש תלמיד</label>
+      <input id="search" class="search" type="search" placeholder="🔍 חיפוש תלמיד…" autocomplete="off">
+      <button class="btn" id="bulkBtn">כל ה"לא ענה" ← נוכח</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ביקורת -->
+  <section class="view" id="view-review" aria-label="ביקורת">
+    <div id="studentsWrap"><div class="loading">טוען את הביקורת…</div></div>
+  </section>
+
+  <!-- תוצאות -->
+  <section class="view" id="view-history" hidden aria-label="תוצאות ביקורות">
+    <div class="card">
+      <h2>היסטוריה אישית של תלמיד</h2>
+      <label class="sr-only" for="stuSearch">חיפוש תלמיד</label>
+      <input id="stuSearch" class="search" style="width:100%" type="search" placeholder="הקלד שם תלמיד…" list="stuList" autocomplete="off">
+      <datalist id="stuList"></datalist>
+      <div id="stuHistory"></div>
+    </div>
+    <div class="card">
+      <h2>כל הביקורות</h2>
+      <p class="hint">לחיצה על שורה מציגה מי לא היה נוכח באותה ביקורת.</p>
+      <div id="historyTable"><div class="loading">טוען…</div></div>
+    </div>
+  </section>
+
+  <!-- הדפסה -->
+  <section class="view" id="view-print" hidden aria-label="הדפסה">
+    <div class="card no-print">
+      <h2>הדפסה</h2>
+      <div class="form-grid">
+        <label class="f">דוח
+          <select id="printKind">
+            <option value="cover">שער — סיכום ביקורות</option>
+            <option value="all">כללי — כל התלמידים</option>
+            <option value="missing">חסר / לא ענה</option>
+            <option value="bishuv">בישוב</option>
+            <option value="nirsham">נרשם</option>
+          </select>
+        </label>
+        <label class="f">מספר ביקורות אחרונות
+          <select id="printCount">
+            <option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option>
+          </select>
+        </label>
+      </div>
+      <div class="row-actions">
+        <button class="btn primary" id="printBtn">🖨️ הדפס</button>
+        <button class="btn" id="updatePrintBtn">עדכן גיליונות הדפסה בקובץ</button>
+      </div>
+    </div>
+    <div id="printArea"></div>
+  </section>
+
+  <!-- ניהול -->
+  <section class="view" id="view-admin" hidden aria-label="ניהול ביקורת">
+    <div class="card">
+      <h2>פרטי הביקורת הנוכחית</h2>
+      <div class="form-grid">
+        <label class="f">תאריך (עברי)
+          <input id="mDate" type="text" placeholder="לדוגמה: ב תשרי פז">
+        </label>
+        <label class="f">שעה
+          <input id="mTime" type="time">
+        </label>
+        <label class="f">סוג ביקורת
+          <select id="mType"></select>
+        </label>
+      </div>
+      <div class="row-actions">
+        <button class="btn" id="metaNowBtn">היום ועכשיו</button>
+        <button class="btn primary" id="metaSaveBtn">שמור פרטים</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>ביקורת חדשה</h2>
+      <p class="hint">טוען את רשימת התלמידים הפעילים מגיליון "מסד", וכל התלמידים מתחילים כ"לא ענה". הסימונים הקיימים יימחקו.</p>
+      <div class="row-actions">
+        <button class="btn primary" data-prepare="boker">🔵 הכן ביקורת בוקר</button>
+        <button class="btn primary" data-prepare="tzohorayim">🔵 הכן ביקורת צהריים</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>סגירת ביקורת</h2>
+      <p class="hint">שומר את התוצאות כעמודה חדשה בגיליון "מסד" ומעדכן את גיליונות ההדפסה.</p>
+      <div class="row-actions">
+        <button class="btn ok" id="closeBtn">☑️ סגור ביקורת</button>
+      </div>
+    </div>
+    <p class="hint" id="logLine"></p>
+  </section>
+</main>
+
+<nav class="tabs" role="tablist" aria-label="מסכים">
+  <button role="tab" aria-selected="true" data-view="review"><span class="ic" aria-hidden="true">✅</span>ביקורת</button>
+  <button role="tab" aria-selected="false" data-view="history"><span class="ic" aria-hidden="true">📊</span>תוצאות</button>
+  <button role="tab" aria-selected="false" data-view="print"><span class="ic" aria-hidden="true">🖨️</span>הדפסה</button>
+  <button role="tab" aria-selected="false" data-view="admin"><span class="ic" aria-hidden="true">⚙️</span>ניהול</button>
+</nav>
+
+<div class="toast" id="toast" hidden role="alert"><span id="toastMsg"></span><span class="spacer"></span><button id="toastAction" hidden>בטל</button></div>
+
+<dialog id="dlg">
+  <div class="dlg-body"><h2 id="dlgTitle"></h2><div id="dlgText"></div></div>
+  <div class="dlg-actions"><button class="btn primary" id="dlgOk">אישור</button><button class="btn" id="dlgCancel">ביטול</button></div>
+</dialog>
+
+<script>
+(function () {
+  'use strict';
+
+  var STATUS_META = {
+    'נוכח':   { cls: '--s-present', short: 'נוכח' },
+    'בישוב':  { cls: '--s-bishuv',  short: 'בישוב' },
+    'חסר':    { cls: '--s-chaser',  short: 'חסר' },
+    'לא ענה': { cls: '--s-loana',   short: 'לא ענה' },
+    'נרשם':   { cls: '--s-nirsham', short: 'נרשם' }
+  };
+  var STATUSES = ['נוכח', 'בישוב', 'חסר', 'לא ענה', 'נרשם'];
+  function colorOf(st) { var m = STATUS_META[st]; return m ? 'var(' + m.cls + ')' : 'var(--muted)'; }
+
+  var state = { students: [], date: '', time: '', type: '', title: '', types: [] };
+  var filter = 'all';
+  var query = '';
+  var pending = {};         // id -> status שטרם נשמר
+  var flushTimer = null;
+  var saving = false;
+  var lastUndo = null;
+
+  /* ---------- קריאות לשרת ---------- */
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      if (window.google && google.script && google.script.run) {
+        var r = google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) { reject(e); });
+        r[fn].apply(r, args);
+      } else {
+        MOCK[fn].apply(null, args).then(resolve, reject);
+      }
+    });
+  }
+
+  /* ---------- תאריך עברי ---------- */
+  function hebDateLabel(d) {
+    try {
+      var parts = new Intl.DateTimeFormat('he-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric' }).formatToParts(d);
+      var get = function (t) { var p = parts.find(function (x) { return x.type === t; }); return p ? p.value : ''; };
+      var clean = function (s) { return s.replace(/[״׳"']/g, '').trim(); };
+      var day = clean(get('day'));
+      var month = clean(get('month')).replace(/^ב(?=[א-ת])/, '');
+      var year = clean(get('year'));
+      if (/^\d+$/.test(day)) day = gematria(+day);
+      if (/^\d+$/.test(year)) year = gematria(+year % 1000);
+      return day + ' ' + month + ' ' + year.slice(-2);
+    } catch (e) { return ''; }
+  }
+  function gematria(n) {
+    var out = '';
+    [[400, 'ת'], [300, 'ש'], [200, 'ר'], [100, 'ק']].forEach(function (p) { while (n >= p[0]) { out += p[1]; n -= p[0]; } });
+    if (n === 15) return out + 'טו';
+    if (n === 16) return out + 'טז';
+    out += ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'][Math.floor(n / 10)];
+    return out + ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'][n % 10];
+  }
+  function nowTime() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  /* ---------- UI כללי ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  var toastTimer;
+  function toast(msg, actionLabel, action) {
+    $('toastMsg').textContent = msg;
+    var b = $('toastAction');
+    if (action) { b.hidden = false; b.textContent = actionLabel; b.onclick = function () { $('toast').hidden = true; action(); }; }
+    else { b.hidden = true; b.onclick = null; }
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('toast').hidden = true; }, action ? 6000 : 3500);
+  }
+
+  function confirmDlg(title, html, okLabel, okClass) {
+    return new Promise(function (resolve) {
+      var d = $('dlg');
+      $('dlgTitle').textContent = title;
+      $('dlgText').innerHTML = html;
+      var ok = $('dlgOk');
+      ok.textContent = okLabel || 'אישור';
+      ok.className = 'btn ' + (okClass || 'primary');
+      var done = function (v) { d.close(); ok.onclick = null; $('dlgCancel').onclick = null; resolve(v); };
+      ok.onclick = function () { done(true); };
+      $('dlgCancel').onclick = function () { done(false); };
+      d.oncancel = function () { resolve(false); };
+      d.showModal();
+      $('dlgCancel').focus();
+    });
+  }
+
+  function setSync(text, isErr) {
+    var s = $('sync');
+    s.textContent = text;
+    s.classList.toggle('err', !!isErr);
+  }
+
+  function errMsg(e) { return (e && e.message) || String(e); }
+
+  /* ---------- הגדרות תצוגה ---------- */
+  function pref(k, v) {
+    try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; }
+  }
+  var sizes = ['normal', 'large', 'xlarge'];
+  function applyPrefs() {
+    var sz = pref('bk_size') || 'normal';
+    document.documentElement.setAttribute('data-size', sz);
+    var th = pref('bk_theme');
+    if (th) document.documentElement.setAttribute('data-theme', th);
+  }
+  $('sizeBtn').onclick = function () {
+    var cur = pref('bk_size') || 'normal';
+    var next = sizes[(sizes.indexOf(cur) + 1) % sizes.length];
+    pref('bk_size', next); applyPrefs();
+    toast('גודל גופן: ' + { normal: 'רגיל', large: 'גדול', xlarge: 'גדול מאוד' }[next]);
+  };
+  $('themeBtn').onclick = function () {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+      (!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    var next = dark ? 'light' : 'dark';
+    pref('bk_theme', next); document.documentElement.setAttribute('data-theme', next);
+  };
+
+  /* ---------- מסך ביקורת ---------- */
+  function counts() {
+    var c = { all: state.students.length };
+    STATUSES.forEach(function (s) { c[s] = 0; });
+    state.students.forEach(function (s) { c[s.status || 'לא ענה']++; });
+    return c;
+  }
+
+  function renderHeader() {
+    $('title').textContent = state.title || 'ביקורת נוכחות';
+    var bits = [state.date, state.time, state.type].filter(Boolean);
+    $('metaLine').textContent = bits.join(' · ');
+    var c = counts();
+    var html = '<button class="chip" data-filter="all" aria-pressed="' + (filter === 'all') + '">הכל <span class="num">' + c.all + '</span></button>';
+    STATUSES.forEach(function (s) {
+      html += '<button class="chip" data-filter="' + s + '" style="--c:' + colorOf(s) + '" aria-pressed="' + (filter === s) + '">' +
+        '<span class="dot" aria-hidden="true"></span>' + s + ' <span class="num">' + c[s] + '</span></button>';
+    });
+    $('chips').innerHTML = html;
+    var pct = c.all ? Math.round((c.all - c['חסר'] - c['נרשם'] - c['לא ענה']) / c.all * 1000) / 10 : 0;
+    $('chips').insertAdjacentHTML('beforeend', '<span class="chip" style="cursor:default" aria-label="אחוז נוכחות ' + pct + '">נוכחות <span class="num">' + pct + '%</span></span>');
+    $('bulkBtn').disabled = !c['לא ענה'];
+  }
+
+  function visibleStudents() {
+    var q = query.trim();
+    return state.students.filter(function (s) {
+      if (filter !== 'all' && (s.status || 'לא ענה') !== filter) return false;
+      if (q && s.name.indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+
+  function studentHTML(s) {
+    var st = s.status || 'לא ענה';
+    var btns = STATUSES.map(function (x) {
+      return '<button role="radio" aria-checked="' + (x === st) + '" data-id="' + esc(s.id) + '" data-st="' + x + '" style="--c:' + colorOf(x) + '"' +
+        ' tabindex="' + (x === st ? 0 : -1) + '">' + STATUS_META[x].short + '</button>';
+    }).join('');
+    return '<li class="stu" id="stu-' + esc(s.id) + '" style="--c:' + colorOf(st) + '">' +
+      '<div class="stu-name" id="lbl-' + esc(s.id) + '">' + esc(s.name) + ' <span class="cur">' + st + '</span></div>' +
+      '<div class="seg" role="radiogroup" aria-labelledby="lbl-' + esc(s.id) + '">' + btns + '</div></li>';
+  }
+
+  function renderStudents() {
+    renderHeader();
+    var wrap = $('studentsWrap');
+    if (!state.students.length) {
+      wrap.innerHTML = '<div class="empty">אין ביקורת פתוחה.<br>עבור ללשונית <b>ניהול</b> ולחץ "הכן ביקורת בוקר" או "הכן ביקורת צהריים".</div>';
+      return;
+    }
+    var list = visibleStudents();
+    if (!list.length) { wrap.innerHTML = '<div class="empty">אין תלמידים שמתאימים לסינון.</div>'; return; }
+    var html = '';
+    var letter = null;
+    var open = false;
+    list.forEach(function (s) {
+      var l = s.letter || (s.name || '').charAt(0);
+      if (l !== letter) {
+        if (open) html += '</ul>';
+        html += '<h3 class="letter-head">' + esc(l) + '</h3><ul class="students">';
+        letter = l; open = true;
+      }
+      html += studentHTML(s);
+    });
+    if (open) html += '</ul>';
+    wrap.innerHTML = html;
+  }
+
+  function updateStudentEl(s) {
+    var el = document.getElementById('stu-' + s.id);
+    if (!el) return;
+    // אם הסינון מסתיר אותו עכשיו — משאירים עד הרינדור הבא, כדי שלא "יקפוץ" מתחת לאצבע
+    var tmp = document.createElement('div');
+    tmp.innerHTML = studentHTML(s);
+    el.replaceWith(tmp.firstChild);
+  }
+
+  function setStatus(id, st, opts) {
+    var s = state.students.find(function (x) { return x.id === id; });
+    if (!s || s.status === st) return;
+    var prev = s.status;
+    s.status = st;
+    pending[id] = st;
+    updateStudentEl(s);
+    renderHeader();
+    scheduleFlush();
+    if (!(opts && opts.silent)) {
+      lastUndo = { id: id, st: prev };
+      toast(s.name + ': ' + st, 'בטל', function () { setStatus(id, prev || 'לא ענה', { silent: true }); refocus(id); });
+    }
+  }
+
+  function refocus(id) {
+    var b = document.querySelector('#stu-' + CSS.escape(id) + ' [aria-checked="true"]');
+    if (b) b.focus();
+  }
+
+  function scheduleFlush() {
+    setSync('שומר…');
+    clearTimeout(flushTimer);
+    flushTimer = setTimeout(flush, 500);
+  }
+
+  function flush() {
+    if (saving) { scheduleFlush(); return; }
+    var ids = Object.keys(pending);
+    if (!ids.length) { setSync('נשמר ✓'); return; }
+    var batch = ids.map(function (id) { return { id: id, status: pending[id] }; });
+    var sent = {};
+    batch.forEach(function (b) { sent[b.id] = b.status; });
+    saving = true;
+    call('setStatuses', batch).then(function (res) {
+      saving = false;
+      Object.keys(sent).forEach(function (id) { if (pending[id] === sent[id]) delete pending[id]; });
+      if (res && res.missing && res.missing.length) toast('לא נמצאו בגיליון ' + res.missing.length + ' תלמידים — רענן את הביקורת');
+      if (Object.keys(pending).length) flush(); else setSync('נשמר ✓');
+    }).catch(function (e) {
+      saving = false;
+      setSync('שגיאת שמירה — מנסה שוב', true);
+      clearTimeout(flushTimer);
+      flushTimer = setTimeout(flush, 4000);
+      console.error(e);
+    });
+  }
+
+  $('studentsWrap').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-st]');
+    if (!b) return;
+    setStatus(b.getAttribute('data-id'), b.getAttribute('data-st'));
+    refocus(b.getAttribute('data-id'));
+  });
+  // ניווט מקלדת בתוך קבוצת הכפתורים (חיצים)
+  $('studentsWrap').addEventListener('keydown', function (e) {
+    var b = e.target.closest('button[data-st]');
+    if (!b) return;
+    var keys = { ArrowLeft: 1, ArrowRight: -1, ArrowDown: 1, ArrowUp: -1 };
+    if (!(e.key in keys)) return;
+    e.preventDefault();
+    var i = STATUSES.indexOf(b.getAttribute('data-st'));
+    var next = STATUSES[(i + keys[e.key] + STATUSES.length) % STATUSES.length];
+    setStatus(b.getAttribute('data-id'), next, { silent: true });
+    refocus(b.getAttribute('data-id'));
+  });
+
+  $('chips').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-filter]');
+    if (!c) return;
+    filter = c.getAttribute('data-filter');
+    renderStudents();
+  });
+  var searchTimer;
+  $('search').addEventListener('input', function (e) {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { query = e.target.value; renderStudents(); }, 120);
+  });
+  $('bulkBtn').onclick = function () {
+    var targets = state.students.filter(function (s) { return (s.status || 'לא ענה') === 'לא ענה'; });
+    if (!targets.length) return;
+    confirmDlg('סימון כנוכחים', 'לסמן <b>' + targets.length + '</b> תלמידים שלא ענו כ"נוכח"?', 'סמן כנוכחים', 'ok').then(function (ok) {
+      if (!ok) return;
+      targets.forEach(function (s) { s.status = 'נוכח'; pending[s.id] = 'נוכח'; });
+      renderStudents(); scheduleFlush();
+      toast(targets.length + ' תלמידים סומנו כנוכחים', 'בטל', function () {
+        targets.forEach(function (s) { s.status = 'לא ענה'; pending[s.id] = 'לא ענה'; });
+        renderStudents(); scheduleFlush();
+      });
+    });
+  };
+
+  function applyServerState(st) {
+    // שומרים שינויים מקומיים שעוד לא נשמרו
+    st.students.forEach(function (s) { if (pending[s.id]) s.status = pending[s.id]; });
+    state = st;
+    fillAdmin();
+  }
+
+  function load() {
+    return call('getState').then(function (st) {
+      applyServerState(st);
+      renderStudents();
+      if (!Object.keys(pending).length) setSync('מעודכן ✓');
+    }).catch(function (e) {
+      $('studentsWrap').innerHTML = '<div class="empty">שגיאה בטעינה: ' + esc(errMsg(e)) + '</div>';
+      setSync('שגיאה', true);
+    });
+  }
+
+  // רענון תקופתי — כדי לראות סימונים של מבקרים אחרים במקביל
+  setInterval(function () {
+    if (document.hidden || saving || Object.keys(pending).length || currentView !== 'review') return;
+    if (document.activeElement && document.activeElement.id === 'search') return;
+    call('getState').then(function (st) {
+      var changed = st.students.length !== state.students.length ||
+        st.students.some(function (s, i) { var o = state.students[i]; return !o || o.id !== s.id || o.status !== s.status; });
+      if (Object.keys(pending).length) return;
+      var focusId = document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-id');
+      applyServerState(st);
+      if (changed) { renderStudents(); if (focusId) refocus(focusId); } else renderHeader();
+    }).catch(function () {});
+  }, 15000);
+
+  /* ---------- ניווט בין מסכים ---------- */
+  var currentView = 'review';
+  document.querySelectorAll('nav.tabs button').forEach(function (b) {
+    b.addEventListener('click', function () { showView(b.getAttribute('data-view')); });
+  });
+  function showView(v) {
+    currentView = v;
+    document.querySelectorAll('nav.tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-view') === v); });
+    document.querySelectorAll('.view').forEach(function (s) { s.hidden = s.id !== 'view-' + v; });
+    $('reviewTools').hidden = v !== 'review';
+    window.scrollTo(0, 0);
+    if (v === 'review') load();
+    if (v === 'history') loadHistory();
+    if (v === 'print') loadPrint();
+    if (v === 'admin') fillAdmin();
+  }
+
+  /* ---------- ניהול ---------- */
+  function fillAdmin() {
+    var sel = $('mType');
+    if (!sel.options.length) sel.innerHTML = (state.types || []).map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('');
+    if (document.activeElement && /^m(Date|Time|Type)$/.test(document.activeElement.id)) return;
+    $('mDate').value = state.date || '';
+    $('mTime').value = /^\d{1,2}:\d{2}$/.test(state.time) ? state.time.padStart(5, '0') : '';
+    if (state.type) {
+      if (![].some.call(sel.options, function (o) { return o.value === state.type; })) sel.insertAdjacentHTML('beforeend', '<option>' + esc(state.type) + '</option>');
+      sel.value = state.type;
+    }
+    $('logLine').textContent = state.log ? 'פעולה אחרונה: ' + state.log : '';
+  }
+  function metaFromForm() { return { date: $('mDate').value.trim(), time: $('mTime').value, type: $('mType').value }; }
+
+  $('metaNowBtn').onclick = function () { $('mDate').value = hebDateLabel(new Date()); $('mTime').value = nowTime(); };
+  $('metaSaveBtn').onclick = function () {
+    setSync('שומר…');
+    call('setMeta', metaFromForm()).then(function (st) { applyServerState(st); renderHeader(); setSync('נשמר ✓'); toast('פרטי הביקורת נשמרו'); })
+      .catch(function (e) { setSync('שגיאה', true); toast('שגיאה: ' + errMsg(e)); });
+  };
+
+  document.querySelectorAll('[data-prepare]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var session = b.getAttribute('data-prepare');
+      var label = session === 'boker' ? 'ביקורת בוקר' : 'ביקורת צהריים';
+      confirmDlg('הכנת ' + label, 'כל הסימונים בביקורת הנוכחית יימחקו ורשימת התלמידים תיטען מחדש.<br>להמשיך?', 'הכן ' + label).then(function (ok) {
+        if (!ok) return;
+        var meta = metaFromForm();
+        if (!meta.date) meta.date = hebDateLabel(new Date());
+        if (!meta.time) meta.time = nowTime();
+        pending = {};
+        setSync('מכין ביקורת…');
+        call('prepareReview', session, meta).then(function (st) {
+          applyServerState(st); filter = 'all'; query = ''; $('search').value = '';
+          toast(label + ' מוכנה — ' + st.students.length + ' תלמידים');
+          showView('review');
+        }).catch(function (e) { setSync('שגיאה', true); toast('שגיאה: ' + errMsg(e)); });
+      });
+    });
+  });
+
+  $('closeBtn').onclick = function () {
+    var c = counts();
+    if (!c.all) { toast('אין ביקורת פתוחה'); return; }
+    var meta = metaFromForm();
+    if (!meta.date) meta.date = hebDateLabel(new Date());
+    if (!meta.time) meta.time = nowTime();
+    var pct = Math.round((c.all - c['חסר'] - c['נרשם'] - c['לא ענה']) / c.all * 1000) / 10;
+    var html = '<p>תאריך: <b>' + esc(meta.date) + '</b> · שעה: <b>' + esc(meta.time) + '</b> · סוג: <b>' + esc(meta.type) + '</b></p><ul>' +
+      STATUSES.map(function (s) { return '<li><span class="st" style="--c:' + colorOf(s) + '">' + s + '</span>: ' + c[s] + '</li>'; }).join('') +
+      '</ul><p>אחוז נוכחות: <b>' + pct + '%</b></p>' +
+      (c['לא ענה'] ? '<p style="color:var(--bad)"><b>שים לב:</b> ' + c['לא ענה'] + ' תלמידים עדיין מסומנים "לא ענה".</p>' : '');
+    confirmDlg('סגירת ביקורת', html, 'סגור ושמור', 'ok').then(function (ok) {
+      if (!ok) return;
+      var doClose = function () {
+        setSync('סוגר ביקורת…');
+        call('closeReview', meta).then(function (r) {
+          setSync('נשמר ✓');
+          var msg = 'ביקורת #' + r.num + ' נשמרה — ' + Math.round(r.pct * 1000) / 10 + '% (' + (r.passed ? 'עובר' : 'נכשל') + ')';
+          if (r.notFound && r.notFound.length) msg += ' · לא נמצאו במסד: ' + r.notFound.join(', ');
+          if (r.printError) msg += ' · שגיאה בעדכון גיליונות הדפסה';
+          toast(msg);
+          historyCache = null;
+          load();
+        }).catch(function (e) { setSync('שגיאה', true); toast('שגיאה בסגירה: ' + errMsg(e)); });
+      };
+      // מוודאים שכל הסימונים נשמרו לפני הסגירה
+      if (Object.keys(pending).length || saving) {
+        clearTimeout(flushTimer); flush();
+        var wait = setInterval(function () { if (!saving && !Object.keys(pending).length) { clearInterval(wait); doClose(); } }, 300);
+      } else doClose();
+    });
+  };
+
+  /* ---------- תוצאות ---------- */
+  var historyCache = null;
+  var studentsCache = null;
+  function pctText(p) { return p == null ? '' : (Math.round(p * 1000) / 10) + '%'; }
+  function resultBadge(r) { return r ? '<span class="badge ' + (r === 'עובר' ? 'ok' : 'bad') + '">' + esc(r) + '</span>' : ''; }
+
+  function loadHistory() {
+    if (!studentsCache) call('getStudents').then(function (list) {
+      studentsCache = list;
+      $('stuList').innerHTML = list.map(function (s) { return '<option value="' + esc(s.last + ' ' + s.first) + '">' + esc(s.status) + '</option>'; }).join('');
+    });
+    if (historyCache) { renderHistory(); return; }
+    $('historyTable').innerHTML = '<div class="loading">טוען…</div>';
+    call('getHistory').then(function (h) { historyCache = h; renderHistory(); })
+      .catch(function (e) { $('historyTable').innerHTML = '<div class="empty">שגיאה: ' + esc(errMsg(e)) + '</div>'; });
+  }
+
+  function renderHistory() {
+    var rows = historyCache.map(function (r, i) {
+      return '<tr class="click" tabindex="0" data-i="' + i + '"><td>' + esc(r.num) + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.time) + '</td><td>' + esc(r.type) +
+        '</td><td>' + r.n + '</td><td>' + r.chaser + '</td><td>' + r.nirsham + '</td><td>' + r.bishuv + '</td><td>' + r.loAna +
+        '</td><td><b>' + pctText(r.pct) + '</b></td><td>' + resultBadge(r.result) + '</td></tr>';
+    }).join('');
+    $('historyTable').innerHTML = '<div class="table-wrap"><table><thead><tr><th>#</th><th>תאריך</th><th>שעה</th><th>סוג</th><th>תלמידים</th>' +
+      '<th>חסר</th><th>נרשם</th><th>בישוב</th><th>לא ענה</th><th>נוכחות</th><th>תוצאה</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function openReview(i) {
+    var r = historyCache[i];
+    confirmDlg('ביקורת #' + r.num + ' — ' + r.date, '<div class="loading">טוען…</div>', 'סגור');
+    $('dlgCancel').hidden = true;
+    var restore = function () { $('dlgCancel').hidden = false; };
+    $('dlg').addEventListener('close', restore, { once: true });
+    call('getReviewDetail', r.col).then(function (list) {
+      if (!list.length) { $('dlgText').innerHTML = '<p>כל התלמידים היו נוכחים.</p>'; return; }
+      var groups = {};
+      list.forEach(function (s) { (groups[s.status] = groups[s.status] || []).push(s); });
+      $('dlgText').innerHTML = '<p>' + esc(r.time) + ' · ' + esc(r.type) + ' · נוכחות ' + pctText(r.pct) + ' ' + resultBadge(r.result) + '</p>' +
+        Object.keys(groups).map(function (g) {
+          return '<h3 class="st" style="--c:' + colorOf(g) + '">' + esc(g) + ' (' + groups[g].length + ')</h3><p>' +
+            groups[g].map(function (s) { return esc(s.last + ' ' + s.first); }).join(' · ') + '</p>';
+        }).join('');
+    }).catch(function (e) { $('dlgText').textContent = 'שגיאה: ' + errMsg(e); });
+  }
+  $('historyTable').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-i]'); if (tr) openReview(+tr.getAttribute('data-i')); });
+  $('historyTable').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var tr = e.target.closest('tr[data-i]'); if (tr) { e.preventDefault(); openReview(+tr.getAttribute('data-i')); }
+  });
+
+  $('stuSearch').addEventListener('change', function (e) {
+    var v = e.target.value.trim();
+    if (!studentsCache || !v) return;
+    var s = studentsCache.find(function (x) { return (x.last + ' ' + x.first) === v; }) ||
+      studentsCache.find(function (x) { return (x.last + ' ' + x.first).indexOf(v) !== -1; });
+    if (!s) { $('stuHistory').innerHTML = '<p class="hint">לא נמצא תלמיד בשם הזה.</p>'; return; }
+    $('stuHistory').innerHTML = '<div class="loading">טוען…</div>';
+    call('getStudentHistory', s.row).then(function (h) {
+      var cnt = {};
+      h.forEach(function (x) { cnt[x.status] = (cnt[x.status] || 0) + 1; });
+      var summary = Object.keys(cnt).map(function (k) { return '<span class="st" style="--c:' + colorOf(k) + '">' + esc(k) + '</span>: ' + cnt[k]; }).join(' · ');
+      $('stuHistory').innerHTML = '<p><b>' + esc(s.last + ' ' + s.first) + '</b> (' + esc(s.status) + ') — ' + summary + '</p>' +
+        '<div class="table-wrap" style="max-height:340px;overflow:auto"><table><thead><tr><th>#</th><th>תאריך</th><th>שעה</th><th>סוג</th><th>סטטוס</th></tr></thead><tbody>' +
+        h.map(function (x) {
+          return '<tr><td>' + esc(x.num) + '</td><td>' + esc(x.date) + '</td><td>' + esc(x.time) + '</td><td>' + esc(x.type) +
+            '</td><td><span class="st" style="--c:' + colorOf(x.status) + '">' + esc(x.status) + '</span></td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }).catch(function (e) { $('stuHistory').textContent = 'שגיאה: ' + errMsg(e); });
+  });
+
+  /* ---------- הדפסה ---------- */
+  var PRINT_TITLES = { cover: 'תוצאות ביקורת', all: 'כלל הישיבה', missing: 'חסר / לא ענה', bishuv: 'בישוב', nirsham: 'נרשם' };
+  function loadPrint() {
+    var kind = $('printKind').value;
+    var count = +$('printCount').value;
+    $('printArea').innerHTML = '<div class="loading">טוען…</div>';
+    call('getPrintData', kind, count).then(function (d) {
+      if (!d.reviews.length) { $('printArea').innerHTML = '<div class="empty">אין ביקורות סגורות.</div>'; return; }
+      var latest = d.reviews[0];
+      var title = PRINT_TITLES[kind];
+      if (kind === 'cover') title += ' (' + latest[4] + ' תלמידים)';
+      else if (kind === 'all') title += ' (' + latest[4] + ')';
+      else if (kind === 'missing') title = 'חסר (' + latest[5] + ') לא ענה (' + latest[9] + ')';
+      else if (kind === 'bishuv') title += ' (' + latest[8] + ')';
+      else if (kind === 'nirsham') title += ' (' + latest[6] + ')';
+      var head = '<thead>' + d.labels.slice(kind === 'cover' ? 0 : 1).map(function (label, k) {
+        var r = kind === 'cover' ? k : k + 1;
+        return '<tr><th colspan="' + (kind === 'cover' ? 1 : 2) + '">' + esc(label) + '</th>' +
+          d.reviews.map(function (rv) { return '<th>' + (r === 11 ? resultBadge(rv[r]) : esc(rv[r])) + '</th>'; }).join('') + '</tr>';
+      }).join('');
+      var body = '';
+      if (kind !== 'cover') {
+        head += '<tr><th>שם משפחה</th><th>שם פרטי</th>' + d.reviews.map(function (rv) { return '<th>' + esc(rv[1]) + '</th>'; }).join('') + '</tr>';
+        body = '<tbody>' + d.rows.map(function (row) {
+          return '<tr><td>' + esc(row[0]) + '</td><td>' + esc(row[1]) + '</td>' + row.slice(2).map(function (v) {
+            return '<td><span class="st" style="--c:' + colorOf(v) + '">' + esc(v) + '</span></td>';
+          }).join('') + '</tr>';
+        }).join('') + '</tbody>';
+      }
+      head += '</thead>';
+      $('printArea').innerHTML = '<h2>' + esc(title) + '</h2><div class="table-wrap"><table>' + head + body + '</table></div>';
+    }).catch(function (e) { $('printArea').innerHTML = '<div class="empty">שגיאה: ' + esc(errMsg(e)) + '</div>'; });
+  }
+  $('printKind').onchange = loadPrint;
+  $('printCount').onchange = loadPrint;
+  $('printBtn').onclick = function () { window.print(); };
+  $('updatePrintBtn').onclick = function () {
+    setSync('מעדכן…');
+    call('updatePrintSheets').then(function () { setSync('נשמר ✓'); toast('גיליונות ההדפסה בקובץ עודכנו'); })
+      .catch(function (e) { setSync('שגיאה', true); toast('שגיאה: ' + errMsg(e)); });
+  };
+
+  window.addEventListener('beforeunload', function (e) {
+    if (Object.keys(pending).length || saving) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  /* ---------- מצב תצוגה מקדימה (מחוץ לגוגל) ---------- */
+  var MOCK = (function () {
+    var names = ['אבוהב גלעד', 'אברהם ארי', 'אדהאן אריאל', 'אדרי ידידיה', 'אהרון דביר', 'אוחיון אורי', 'בן דוד יוסף', 'ברק נתנאל',
+      'גבאי משה', 'גולן אליה', 'דהן שמואל', 'הלוי יהודה', 'וקנין אביתר', 'זכאי נועם', 'חיון אליה', 'טובי חגי', 'יפרח ישראל',
+      'כהן מאיר', 'לוי עמיחי', 'מזרחי שלמה', 'נחום הלל', 'סעדה יאיר', 'עזרא דוד', 'פרץ איתן', 'צדוק ראובן', 'קדוש אלחנן',
+      'רביבו יונתן', 'שרעבי עמיחי', 'תורגמן אריאל'];
+    var st = { log: '', date: 'ב תשרי פז', time: '10:00', type: 'פנימית', title: 'ביקורת בוקר', statuses: STATUSES,
+      types: ['פנימית', 'חיצונית 00', 'חיצונית 02'],
+      students: names.map(function (n, i) { return { row: 4 + i, id: String(300000000 + i), letter: n.charAt(0), name: n, status: ['נוכח', 'נוכח', 'בישוב', 'לא ענה', 'נוכח', 'חסר', 'נרשם'][i % 7] }; }) };
+    var hist = [];
+    for (var i = 0; i < 12; i++) hist.push({ col: 6 + i, num: String(154 - i), date: ['כח אב פו', 'כח תמוז פו', 'כא תמוז פו'][i % 3], time: '11:0' + (i % 10), type: 'פנימית', n: 142, chaser: i % 5, nirsham: 9, totalMissing: 9 + i % 5, bishuv: 30, loAna: i % 4, pct: 0.8 + (i % 7) / 50, result: i % 3 ? 'עובר' : 'נכשל' });
+    var p = function (v) { return new Promise(function (r) { setTimeout(function () { r(JSON.parse(JSON.stringify(v))); }, 150); }); };
+    return {
+      getState: function () { return p(st); },
+      setStatuses: function (ch) { ch.forEach(function (c) { st.students.forEach(function (s) { if (s.id === c.id) s.status = c.status; }); }); return p({ ok: true, missing: [] }); },
+      setMeta: function (m) { Object.assign(st, m); return p(st); },
+      prepareReview: function (s, m) { Object.assign(st, m); st.title = s === 'boker' ? 'ביקורת בוקר' : 'ביקורת צהריים'; st.students.forEach(function (x) { x.status = 'לא ענה'; }); return p(st); },
+      closeReview: function () { return p({ num: 155, pct: 0.9, passed: true, counts: {}, n: st.students.length, notFound: [] }); },
+      getHistory: function () { return p(hist); },
+      getReviewDetail: function () { return p([{ last: 'אדהאן', first: 'אריאל', status: 'בישוב' }, { last: 'אוחיון', first: 'אורי', status: 'חסר' }]); },
+      getStudents: function () { return p(st.students.map(function (s, i) { var parts = s.name.split(' '); return { row: 14 + i, id: s.id, status: 'תלמיד', last: parts[0], first: parts.slice(1).join(' ') }; })); },
+      getStudentHistory: function () { return p(hist.map(function (h, i) { return { num: h.num, date: h.date, time: h.time, type: h.type, status: ['נוכח', 'בישוב', 'נוכח', 'חסר'][i % 4] }; })); },
+      getPrintData: function (kind, count) {
+        var labels = ["מס' ביקורת", 'תאריך ביקורת', 'שעת ביקורת', 'סוג ביקורת', "מס' תלמידים", 'חסר', 'נרשם', 'סה"כ חסרים', 'בישוב', 'לא ענה', 'אחוז נוכחות', 'עובר/נכשל'];
+        var reviews = hist.slice(0, count).map(function (h) { return [h.num, h.date, h.time, h.type, h.n, h.chaser, h.nirsham, h.totalMissing, h.bishuv, h.loAna, pctText(h.pct), h.result]; });
+        var rows = kind === 'cover' ? [] : st.students.map(function (s) { var parts = s.name.split(' '); return [parts[0], parts.slice(1).join(' ')].concat(reviews.map(function () { return s.status === 'נוכח' ? '' : s.status; })); });
+        return p({ reviews: reviews, labels: labels, rows: rows });
+      },
+      updatePrintSheets: function () { return p({ ok: true }); }
+    };
+  })();
+
+  applyPrefs();
+  load();
+})();
+</script>
+</body>
+</html>
