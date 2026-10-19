@@ -1,6 +1,6 @@
 # ביקורת נוכחות
 
-אפליקציית Next.js (Vercel) לביקורת נוכחות בישיבה.
+אפליקציית Next.js (Vercel) לביקורת נוכחות בישיבה — https://bikoret-gray.vercel.app
 
 - **תלמידים** — נקראים בכל הכנת ביקורת מגליון "תלמידים" במסד המרכזי (Google Sheets, קריאה בלבד),
   לפי אותם כללים של הסקריפט הישן: תלמוד 00/02, מצב לימודים (תלמיד / תלמיד - בוקר בלבד / תלמיד - צהריים בלבד / ר"מ),
@@ -28,7 +28,7 @@
    - להפעיל את **Google Sheets API**.
    - OAuth consent screen ← **Internal**.
    - Create credentials ← OAuth client ID ← Web application ←
-     Authorized redirect URI: `https://<הכתובת>/api/auth/callback`
+     Authorized redirect URI: `https://bikoret-gray.vercel.app/api/auth/callback`
    - להעתיק את Client ID ו-Client secret ל-Vercel כ-`GOOGLE_CLIENT_ID` ו-`GOOGLE_CLIENT_SECRET`.
 3. **Redeploy**, להיכנס, ובלשונית **ניהול**:
    - "חיבור למסד התלמידים" — מאשרים קריאה בלבד לגיליונות.
