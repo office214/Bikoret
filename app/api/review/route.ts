@@ -10,6 +10,6 @@ export const GET = handler(async (req) => {
 });
 
 export const POST = handler(async (req, user) => {
-  const b = await body<{ session: string; type: string; replace?: boolean }>(req);
-  return prepareReview(b.session, b.type, !!b.replace, user.email);
+  const b = await body<{ type: string; replace?: boolean }>(req);
+  return prepareReview(b.type, !!b.replace, user.email);
 });

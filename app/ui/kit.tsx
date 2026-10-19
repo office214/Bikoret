@@ -33,6 +33,7 @@ export const STATUSES = ['נוכח', 'בישוב', 'חסר', 'לא ענה', 'נ�
 export type Status = (typeof STATUSES)[number];
 export const NO_ANSWER: Status = 'לא ענה';
 export const TYPES = ['פנימית', 'חיצונית 00', 'חיצונית 02'];
+export const typeLabel = (t: string) => t.replace(/^חיצונית/, 'ביקורת אמת').replace(/^פנימית$/, 'ביקורת פנימית');
 
 export function Warn({ show = true }: { show?: boolean }) {
   return show ? <span className="warn-ic" aria-hidden="true">⚠ </span> : null;

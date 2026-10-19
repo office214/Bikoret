@@ -27,3 +27,12 @@ export function hebrewDateShort(d = new Date()): string {
 export function timeHHmm(d = new Date()): string {
   return new Intl.DateTimeFormat('en-GB', { timeZone: config.timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 }
+
+/**
+ * בוקר: 08:30–14:00, צהריים: 14:00–17:30 (שעון ישראל).
+ * מחוץ לשעות האלה — לפי הקרוב: לפני 14:00 בוקר, אחרי 14:00 צהריים.
+ */
+export function autoSession(d = new Date()): 'בוקר' | 'צהריים' {
+  const [h, m] = timeHHmm(d).split(':').map(Number);
+  return h * 60 + m < 14 * 60 ? 'בוקר' : 'צהריים';
+}

@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, AsyncButton, errMsg, NO_ANSWER, pctText, Result, STATUSES, TYPES, useUi, Warn } from './kit';
-import { useSms, type ReviewState } from './App';
+import { api, AsyncButton, errMsg, NO_ANSWER, pctText, Result, STATUSES, TYPES, typeLabel, useUi, Warn } from './kit';
+import type { ReviewState } from './App';
+import { useSms } from './useSms';
 
 type HistRow = {
   id: number; number: number; session: string; type: string; date_heb: string; time: string; total: number; present: number;
@@ -58,7 +59,7 @@ export function HistoryView() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="click" tabIndex={0} onClick={() => open(r)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r); } }}>
-                    <td className="num">{r.number}</td><td>{r.date_heb}</td><td>{r.time}</td><td>{r.type}</td>
+                    <td className="num">{r.number}</td><td>{r.date_heb}</td><td>{r.time}</td><td>{typeLabel(r.type)}</td>
                     <td className="num">{r.total}</td><td className="num">{r.chaser}</td><td className="num">{r.nirsham}</td>
                     <td className="num">{r.bishuv}</td><td className="num">{r.lo_ana}</td>
                     <td className="num"><b>{pctText(r.pct)}</b></td><td><Result passed={r.passed} /></td>
@@ -115,7 +116,7 @@ function StudentHistory() {
               <div className="twrap" style={{ maxHeight: 340, overflow: 'auto' }}>
                 <table>
                   <thead><tr><th className="num">#</th><th>תאריך</th><th>שעה</th><th>סוג</th><th>סטטוס</th></tr></thead>
-                  <tbody>{hist.map((h) => <tr key={h.id}><td className="num">{h.number}</td><td>{h.date_heb}</td><td>{h.time}</td><td>{h.type}</td><td><Warn show={h.status === NO_ANSWER} />{h.status}</td></tr>)}</tbody>
+                  <tbody>{hist.map((h) => <tr key={h.id}><td className="num">{h.number}</td><td>{h.date_heb}</td><td>{h.time}</td><td>{typeLabel(h.type)}</td><td><Warn show={h.status === NO_ANSWER} />{h.status}</td></tr>)}</tbody>
                 </table>
               </div>
               {hist.some((h) => h.imported) && <p className="sub" style={{ marginTop: 8 }}>בביקורות שיובאו מהגיליון הישן מופיעות רק היעדרויות.</p>}
@@ -200,44 +201,19 @@ export function PrintView() {
 type AdminStatus = {
   google: boolean; sheetsEmail: string;
   reviews: { imported: number; closed: number; last_number: number | null };
-  sms: { token: string; username: string; source: string; adminPhone: string; ready: boolean; fromEnv: Record<string, boolean> };
+  sms: { token: string; username: string; source: string; adminPhone: string; ready: boolean; fromEnv: Record<string, boolean>; testPhone: string };
 };
 
 export function AdminView({ user, rv, counts, goReview }: { user: { admin: boolean }; rv: ReviewState; counts: Record<string, number>; goReview: () => void }) {
   const { toast, dialog } = useUi();
   const sms = useSms(rv);
   const [st, setSt] = useState<AdminStatus | null>(null);
-  const [session, setSession] = useState<'בוקר' | 'צהריים'>(() => (new Date().getHours() < 13 ? 'בוקר' : 'צהריים'));
-  const [type, setType] = useState('פנימית');
   const r = rv.review;
   const [meta, setMeta] = useState({ date_heb: r?.date_heb || '', time: r?.time || '', type: r?.type || 'פנימית' });
   useEffect(() => { setMeta({ date_heb: r?.date_heb || '', time: r?.time || '', type: r?.type || 'פנימית' }); }, [r?.id, r?.date_heb, r?.time, r?.type]);
 
   const loadStatus = useCallback(() => api<AdminStatus>('/api/admin/status').then(setSt).catch(() => {}), []);
   useEffect(() => { loadStatus(); }, [loadStatus]);
-
-  const prepare = async (replace = false): Promise<void> => {
-    if (!replace) {
-      const ok = await dialog({ title: `ביקורת ${session} · ${type}`, body: <p>רשימת התלמידים תיטען מהמסד המרכזי וכולם יסומנו &quot;לא ענה&quot;.</p>, ok: 'הכן ביקורת' });
-      if (!ok) return;
-    }
-    try {
-      const res = await api<{ count: number; skipped: { name: string; reason: string }[] }>('/api/review', { body: { session, type, replace } });
-      await rv.reload();
-      toast(`ביקורת ${session} מוכנה — ${res.count} תלמידים`);
-      if (res.skipped.length) {
-        await dialog({ title: 'תלמידים שלא נטענו', cancel: false, ok: 'הבנתי', body: <ul>{res.skipped.map((s, i) => <li key={i}>{s.name || '—'}: {s.reason}</li>)}</ul> });
-      }
-      goReview();
-    } catch (e) {
-      if ((e as { status?: number }).status === 409) {
-        const ok = await dialog({ title: 'יש ביקורת פתוחה', body: <p>הביקורת הפתוחה עדיין לא נסגרה. <b>למחוק אותה</b> ולפתוח חדשה?</p>, ok: 'מחק ופתח חדשה' });
-        if (ok) return prepare(true);
-        return;
-      }
-      toast(errMsg(e));
-    }
-  };
 
   const saveMeta = async () => {
     try { await api(`/api/review/${r!.id}`, { method: 'PATCH', body: meta }); await rv.reload(); toast('הפרטים נשמרו'); }
@@ -267,6 +243,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       toast(`ביקורת #${res.number} נשמרה — ${pctText(Number(res.pct))} · ${res.passed ? 'עובר' : 'נכשל'}`);
       await rv.reload();
       loadStatus();
+      goReview();
     } catch (e) { toast(errMsg(e)); }
   };
 
@@ -278,21 +255,6 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
 
   return (
     <>
-      <div className="card">
-        <h2>ביקורת חדשה</h2>
-        <p className="sub">טוען את התלמידים מגליון &quot;תלמידים&quot; במסד המרכזי. כולם מתחילים כ&quot;לא ענה&quot;.</p>
-        <div className="grid">
-          <div className="f">
-            <span id="tod">זמן</span>
-            <div className="choice" role="radiogroup" aria-labelledby="tod">
-              {(['בוקר', 'צהריים'] as const).map((s) => <button key={s} role="radio" aria-checked={session === s} onClick={() => setSession(s)}>{s}</button>)}
-            </div>
-          </div>
-          <label className="f">סוג ביקורת<select value={type} onChange={(e) => setType(e.target.value)}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
-        </div>
-        <div className="actions"><AsyncButton className="btn solid" busyText="טוען תלמידים…" onClick={() => prepare()}>הכן ביקורת</AsyncButton></div>
-      </div>
-
       {r && (
         <>
           <div className="card">
@@ -310,7 +272,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
             <div className="grid">
               <label className="f">תאריך עברי<input value={meta.date_heb} onChange={(e) => setMeta({ ...meta, date_heb: e.target.value })} /></label>
               <label className="f">שעה<input type="time" value={meta.time} onChange={(e) => setMeta({ ...meta, time: e.target.value })} /></label>
-              <label className="f">סוג<select value={meta.type} onChange={(e) => setMeta({ ...meta, type: e.target.value })}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
+              <label className="f">סוג<select value={meta.type} onChange={(e) => setMeta({ ...meta, type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{typeLabel(t)}</option>)}</select></label>
             </div>
             <div className="actions">
               <AsyncButton className="btn ghost" onClick={saveMeta}>שמור פרטים</AsyncButton>
@@ -321,7 +283,8 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
         </>
       )}
 
-      {user.admin && st && <Setup st={st} reload={loadStatus} />}
+      {!r && <div className="card"><p className="sub" style={{ margin: 0 }}>אין ביקורת פתוחה. ביקורת חדשה נפתחת ממסך הבית (לשונית ביקורת).</p></div>}
+      {user.admin && st && <Setup st={st} reload={() => { loadStatus(); rv.reload(); }} />}
 
       <div className="card">
         <form action="/api/auth/logout" method="post"><button className="btn ghost">יציאה מהמערכת</button></form>
@@ -333,6 +296,14 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
 function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
   const { toast, dialog } = useUi();
   const [f, setF] = useState({ token: '', username: '', source: '', adminPhone: '' });
+  const [testPhone, setTestPhone] = useState('');
+  const setTest = async (on: boolean) => {
+    try {
+      await api('/api/admin/sms-settings', { body: on ? { testPhone } : { testOff: true } });
+      setTestPhone(''); reload();
+      toast(on ? 'מצב בדיקה הופעל — הודעות יישלחו רק למספר הבדיקה' : 'מצב בדיקה כובה — הודעות יישלחו לתלמידים');
+    } catch (e) { toast(errMsg(e)); }
+  };
 
   const save = async () => {
     try { await api('/api/admin/sms-settings', { body: f }); setF({ token: '', username: '', source: '', adminPhone: '' }); reload(); toast('ההגדרות נשמרו'); }
@@ -379,6 +350,20 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
           הודעת בדיקה למנהל
         </AsyncButton>
       </div>
+
+      <h3 style={{ margin: '20px 0 4px', fontSize: '1em' }}>מצב בדיקת SMS</h3>
+      <p className="sub">כשמצב הבדיקה פעיל, כל שליחה (התחלה / לא ענו) שולחת הודעה לדוגמה אחת לכל נוסח — רק למספר הבדיקה. תלמידים לא מקבלים כלום.</p>
+      {st.sms.testPhone ? (
+        <>
+          <Line ok={false}>מצב בדיקה פעיל — הודעות נשלחות רק ל-{st.sms.testPhone}</Line>
+          <div className="actions"><AsyncButton className="btn solid" onClick={() => setTest(false)}>כבה מצב בדיקה</AsyncButton></div>
+        </>
+      ) : (
+        <div className="grid">
+          <label className="f">מספר נייד לבדיקה<input type="tel" inputMode="tel" autoComplete="off" placeholder="05X-XXXXXXX" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} /></label>
+          <div className="f" style={{ justifyContent: 'flex-end' }}><AsyncButton className="btn solid" disabled={!testPhone.trim()} onClick={() => setTest(true)}>הפעל מצב בדיקה</AsyncButton></div>
+        </div>
+      )}
     </div>
   );
 }

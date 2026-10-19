@@ -171,3 +171,21 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
   th, td { border: 1px solid #888; padding: 3px 6px; }
   tr { break-inside: avoid; }
 }
+
+/* מסך הבית */
+.home { display: grid; gap: 12px; max-width: 560px; margin: 8px auto 0; }
+.home .sub { text-align: center; margin: 4px 0 4px; }
+.start {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 120px; padding: 16px; border-radius: 10px; border: 2px solid var(--line-strong);
+  background: var(--surface); color: var(--text); cursor: pointer; text-align: center;
+}
+.start:first-of-type { background: var(--accent); color: var(--on-accent); }
+.start .t { font-size: 1.45em; font-weight: 800; letter-spacing: -.01em; }
+.start .s { font-size: .85em; opacity: .75; }
+.start:disabled { opacity: .55; cursor: progress; }
+.start:not(:disabled):active { transform: scale(.99); }
+.banner {
+  display: flex; gap: 6px; align-items: center; margin-bottom: 12px; padding: 10px 12px; font-weight: 700; font-size: .9em;
+  border: 1px solid var(--warn); border-radius: var(--r); background: var(--warn-bg); color: var(--text);
+}

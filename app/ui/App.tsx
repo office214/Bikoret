@@ -1,8 +1,10 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, errMsg, Icon, NO_ANSWER, STATUSES, UiProvider, useUi, Warn, type Status } from './kit';
+import { api, AsyncButton, errMsg, Icon, NO_ANSWER, STATUSES, UiProvider, useUi, Warn, type Status } from './kit';
 import { AdminView, HistoryView, PrintView } from './views';
+import { useSms } from './useSms';
+import { typeLabel } from './kit';
 
 type User = { email: string; name: string; admin: boolean };
 export type Review = { id: number; number: number | null; session: string; type: string; date_heb: string; time: string };
@@ -19,6 +21,8 @@ function useReview() {
   const [review, setReview] = useState<Review | null>(null);
   const [entries, setEntries] = useState<Map<string, Entry>>(new Map());
   const [loaded, setLoaded] = useState(false);
+  const [smsTest, setSmsTest] = useState(false);
+  const [session, setSession] = useState('');
   const [sync, setSync] = useState<{ text: string; err?: boolean }>({ text: 'טוען…' });
   const pending = useRef(new Map<string, Status>());
   const since = useRef<string>('');
@@ -27,8 +31,10 @@ function useReview() {
 
   const load = useCallback(async (full = false) => {
     const q = !full && since.current && reviewId.current ? `?since=${encodeURIComponent(since.current)}` : '';
-    const r = await api<{ review: Review | null; entries: Entry[]; full: boolean; now: string }>(`/api/review${q}`);
+    const r = await api<{ review: Review | null; entries: Entry[]; full: boolean; now: string; smsTest: boolean; session: string }>(`/api/review${q}`);
     since.current = r.now;
+    setSmsTest(r.smsTest);
+    setSession(r.session);
     if ((r.review?.id ?? null) !== reviewId.current && !r.full) return load(true);
     reviewId.current = r.review?.id ?? null;
     setReview(r.review);
@@ -115,7 +121,7 @@ function useReview() {
     while (pending.current.size || inflight.current) await new Promise((r) => setTimeout(r, 200));
   }, [flush]);
 
-  return { review, entries, loaded, sync, mark, markAll, reload: () => load(true), waitSaved };
+  return { review, entries, loaded, sync, smsTest, session, mark, markAll, reload: () => load(true), waitSaved };
 }
 export type ReviewState = ReturnType<typeof useReview>;
 
@@ -166,8 +172,8 @@ function Shell({ user }: { user: User }) {
       <header className="top">
         <div className="bar">
           <div className="grow">
-            <h1>{r ? `ביקורת ${r.session}` : 'ביקורת נוכחות'}</h1>
-            <div className="meta">{r ? [r.date_heb, r.time, r.type].filter(Boolean).join(' · ') : user.name}</div>
+            <h1>{r ? `${typeLabel(r.type)} · ${r.session}` : 'ביקורת נוכחות'}</h1>
+            <div className="meta">{r ? [r.date_heb, r.time].filter(Boolean).join(' · ') : user.name}</div>
           </div>
           <span className={'sync' + (rv.sync.err ? ' err' : '')} role="status" aria-live="polite">{rv.sync.text}</span>
           <button className="ibtn" onClick={cycleSize} aria-label="שינוי גודל גופן">א+</button>
@@ -187,14 +193,16 @@ function Shell({ user }: { user: User }) {
             <div className="row2">
               <label className="sr-only" htmlFor="search">חיפוש תלמיד</label>
               <input id="search" className="search" type="search" placeholder="חיפוש תלמיד" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} />
-              <SmsButton rv={rv} count={counts[NO_ANSWER]} />
+              <NoAnswerButton rv={rv} count={counts[NO_ANSWER]} />
             </div>
           </div>
         )}
       </header>
 
       <main>
-        {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} onPrepare={() => go('admin')} />}
+        {rv.smsTest && <div className="banner" role="note"><Warn />מצב בדיקת SMS פעיל — הודעות נשלחות רק למספר הבדיקה, לא לתלמידים.</div>}
+        {tab === 'review' && rv.loaded && !rv.review && <Home rv={rv} />}
+        {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} />}
         {tab === 'history' && <HistoryView />}
         {tab === 'print' && <PrintView />}
         {tab === 'admin' && <AdminView user={user} rv={rv} counts={counts} goReview={() => go('review')} />}
@@ -211,7 +219,7 @@ function Shell({ user }: { user: User }) {
 
 /* ---------- רשימת התלמידים ---------- */
 
-function ReviewList({ rv, filter, query, onPrepare }: { rv: ReviewState; filter: 'all' | Status; query: string; onPrepare: () => void }) {
+function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | Status; query: string }) {
   const { toast, dialog } = useUi();
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -222,14 +230,7 @@ function ReviewList({ rv, filter, query, onPrepare }: { rv: ReviewState; filter:
   }, [rv.entries, filter, query]);
 
   if (!rv.loaded) return <div className="loading">טוען את הביקורת…</div>;
-  if (!rv.review) {
-    return (
-      <div className="empty">
-        <p>אין ביקורת פתוחה.</p>
-        <button className="btn solid" onClick={onPrepare}>הכנת ביקורת חדשה</button>
-      </div>
-    );
-  }
+  if (!rv.review) return null;
 
   const setStatus = (e: Entry, s: Status, silent = false) => {
     if (e.status === s) return;
@@ -310,65 +311,54 @@ function memoRow<T extends { e: Entry }>(C: React.FC<T>) {
   return memo(C, (a, b) => a.e === b.e);
 }
 
-/* ---------- SMS ---------- */
-
-export function useSms(rv: ReviewState) {
-  const { dialog, toast } = useUi();
-  return async (kind: 'start' | 'noanswer', count: number) => {
-    if (!rv.review) return;
-    const label = kind === 'start' ? 'סמס התחלה' : 'סמס לא ענו';
-    if (!count) { toast('אין תלמידים שמסומנים "לא ענה"'); return; }
-    const ok = await dialog({ title: label, body: <p>יישלח ל-<b>{count}</b> תלמידים שמסומנים &quot;לא ענה&quot;, בעברית או באנגלית לפי המסד.</p>, ok: 'שלח' });
-    if (!ok) return;
-    const send = async (force: boolean): Promise<void> => {
-      try {
-        await rv.waitSaved();
-        const r = await api<{ target: number; sent: number; missing: string[]; errors: string[] }>(`/api/review/${rv.review!.id}/sms`, { body: { kind, force } });
-        await dialog({
-          title: `דוח ${label}`, cancel: false, ok: 'סגור',
-          body: (
-            <>
-              <div className="twrap"><table><tbody>
-                <tr><td>נשלחו</td><td className="num">{r.sent}</td></tr>
-                <tr><td>ללא מספר נייד</td><td className="num">{r.missing.length}</td></tr>
-                <tr><td>שגיאות</td><td className="num">{r.errors.length}</td></tr>
-              </tbody></table></div>
-              {r.missing.length > 0 && <p className="sub">ללא מספר: {r.missing.join(' · ')}</p>}
-              {r.errors.length > 0 && <p className="sub">{r.errors.join(' | ')}</p>}
-            </>
-          ),
-        });
-      } catch (e) {
-        const err = e as { status?: number };
-        if (err.status === 409 && !force) {
-          const again = await dialog({ title: 'נשלח כבר', body: <p>{errMsg(e)}. לשלוח שוב?</p>, ok: 'שלח שוב' });
-          if (again) return send(true);
-          return;
-        }
-        toast(errMsg(e));
-      }
-    };
-    await send(false);
-  };
+function NoAnswerButton({ rv, count }: { rv: ReviewState; count: number }) {
+  const sms = useSms(rv);
+  return (
+    <AsyncButton className="btn ghost" busyText="שולח…" disabled={!count} onClick={() => sms('noanswer', count)}
+      aria-label={`שליחת SMS ל-${count} תלמידים שלא ענו`}>
+      <Icon name="msg" size={18} /> ללא ענו ({count})
+    </AsyncButton>
+  );
 }
 
-function SmsButton({ rv, count }: { rv: ReviewState; count: number }) {
-  const { dialog } = useUi();
+/* ---------- מסך הבית: בחירת סוג ביקורת ---------- */
+
+const START_TYPES = [
+  { type: 'פנימית', title: 'ביקורת פנימית', sub: 'כל התלמידים' },
+  { type: 'חיצונית 00', title: 'ביקורת אמת 00', sub: 'תלמידי 00 בלבד' },
+  { type: 'חיצונית 02', title: 'ביקורת אמת 02', sub: 'תלמידי 02 בלבד' },
+];
+
+function Home({ rv }: { rv: ReviewState }) {
+  const { toast } = useUi();
   const sms = useSms(rv);
-  const open = async () => {
-    const choice = await dialog({
-      title: 'שליחת SMS', ok: false, cancel: 'סגור',
-      body: (close) => (
-        <>
-          <p>נשלח רק למי שמסומן &quot;לא ענה&quot; ({count}).</p>
-          <div className="actions">
-            <button type="button" className="btn solid" onClick={() => close('start')}>סמס התחלה</button>
-            <button type="button" className="btn" onClick={() => close('noanswer')}>סמס לא ענו</button>
-          </div>
-        </>
-      ),
-    });
-    if (choice === 'start' || choice === 'noanswer') await sms(choice, count);
+  const [busy, setBusy] = useState('');
+
+  const start = async (type: string) => {
+    if (busy) return;
+    setBusy(type);
+    try {
+      const res = await api<{ id: number; count: number; skipped: { name: string; reason: string }[] }>('/api/review', { body: { type } });
+      await rv.reload();
+      if (res.skipped.length) toast(`${res.skipped.length} תלמידים לא נטענו (חסרה ת"ז או כפילות)`);
+      await sms('start', res.count, res.id);
+    } catch (e) {
+      if ((e as { status?: number }).status === 409) { toast('כבר נפתחה ביקורת — מציג אותה'); await rv.reload(); }
+      else toast(errMsg(e));
+    } finally {
+      setBusy('');
+    }
   };
-  return <button className="btn ghost" onClick={open} aria-label="שליחת SMS"><Icon name="msg" size={18} /> SMS</button>;
+
+  return (
+    <div className="home">
+      <p className="sub">ביקורת חדשה · {rv.session || '…'} (נקבע לפי השעה)</p>
+      {START_TYPES.map((t) => (
+        <button key={t.type} className="start" onClick={() => start(t.type)} disabled={!!busy} aria-busy={busy === t.type}>
+          <span className="t">{busy === t.type ? 'טוען תלמידים…' : t.title}</span>
+          <span className="s">{t.sub}</span>
+        </button>
+      ))}
+    </div>
+  );
 }

@@ -1,6 +1,7 @@
 import { config, NO_ANSWER, REVIEW_TYPES, SESSIONS, STATUSES, type Status } from './config';
 import { audit, db } from './db';
-import { hebrewDateShort, timeHHmm } from './hebdate';
+import { autoSession, hebrewDateShort, timeHHmm } from './hebdate';
+import { getSetting } from './secure';
 import { HttpError } from './http';
 import { readSheet } from './google';
 import { normId, normText, readCentralStudents, selectForReview } from './students';
@@ -20,16 +21,19 @@ export async function currentReview(since?: string) {
   const [review] = await sql<ReviewMeta[]>`
     select id, number, status, session, type, date_heb, time, created_at, created_by
     from reviews where status = 'open'`;
-  if (!review) return { review: null, entries: [], full: true, now: new Date().toISOString() };
+  const smsTest = !!(await getSetting(SMS_TEST_KEY));
+  if (!review) return { review: null, entries: [], full: true, now: new Date().toISOString(), smsTest, session: autoSession() };
   const full = !since || isNaN(Date.parse(since));
   const entries = full
     ? await sql`select student_id as id, last_name, first_name, status, updated_at from entries where review_id = ${review.id} order by last_name, first_name`
     : await sql`select student_id as id, last_name, first_name, status, updated_at from entries where review_id = ${review.id} and updated_at > ${since}`;
   const [{ now }] = await sql`select now() as now`;
-  return { review, entries, full, now };
+  return { review, entries, full, now, smsTest, session: autoSession() };
 }
 
-export async function prepareReview(session: string, type: string, replace: boolean, user: string) {
+export const SMS_TEST_KEY = 'sms_test_phone';
+
+export async function prepareReview(type: string, replace: boolean, user: string, session: string = autoSession()) {
   if (!(SESSIONS as readonly string[]).includes(session)) throw new HttpError(400, 'זמן ביקורת לא תקין');
   if (!(REVIEW_TYPES as readonly string[]).includes(type)) throw new HttpError(400, 'סוג ביקורת לא תקין');
 
@@ -156,6 +160,7 @@ export async function sendReviewSms(reviewId: number, kind: SmsKind, force: bool
 
   const settings = await smsSettings();
   const label = kind === 'start' ? 'סמס התחלה' : 'סמס לא ענו';
+  const testPhone = await getSetting(SMS_TEST_KEY);
   const missing: string[] = [];
   const errors: string[] = [];
   const log: { review_id: number; kind: string; student_id: string; phone: string; ok: boolean; error: string | null; sent_by: string }[] = [];
@@ -173,6 +178,26 @@ export async function sendReviewSms(reviewId: number, kind: SmsKind, force: bool
     const text = smsText(kind, t.lang, review.type, review.time);
     if (!groups.has(text)) groups.set(text, []);
     groups.get(text)!.push({ id: t.student_id, name, phone: p });
+  }
+
+  // מצב בדיקה: כל נוסח נשלח פעם אחת למספר הבדיקה בלבד — לא לתלמידים
+  if (testPhone) {
+    const to = toInternational972(testPhone);
+    let sentTest = 0;
+    for (const [text, list] of groups) {
+      const sample = `[בדיקה — היה נשלח ל-${list.length} תלמידים]\n${text}`;
+      try {
+        await send019(settings, [to], sample);
+        sentTest++;
+        await sql`insert into sms_log (review_id, kind, phone, ok, sent_by) values (${reviewId}, ${kind + '-test'}, ${to}, true, ${user})`;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errors.push(msg);
+        await sql`insert into sms_log (review_id, kind, phone, ok, error, sent_by) values (${reviewId}, ${kind + '-test'}, ${to}, false, ${msg}, ${user})`;
+      }
+    }
+    await audit(user, 'sms-test', { reviewId, kind, messages: sentTest, errors: errors.length });
+    return { target: targets.length, sent: 0, missing, errors, test: { phone: testPhone, messages: sentTest } };
   }
 
   await adminReport(`↖️ מתחיל ${label} | יעד: ${targets.length}`);
