@@ -114,7 +114,8 @@ function StudentHistory() {
     <div className="card">
       <h2>היסטוריה של תלמיד</h2>
       <label className="sr-only" htmlFor="stuq">שם תלמיד</label>
-      <input id="stuq" className="search" type="search" placeholder="הקלד לפחות 2 אותיות משם התלמיד" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+      <input id="stuq" className="search" type="search" placeholder="הקלד לפחות 2 אותיות משם התלמיד" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" enterKeyHint="search"
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }} />
       {found.length > 0 && (
         <ul className="list" style={{ marginTop: 8 }}>
           {found.map((s) => <li key={s.id}><button className="btn ghost" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => pick(s)}>{s.last_name} {s.first_name}</button></li>)}

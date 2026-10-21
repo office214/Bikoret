@@ -202,7 +202,9 @@ function Shell({ user }: { user: User }) {
             <div className="progress" aria-hidden="true"><i style={{ width: `${counts.all ? ((counts.all - counts[NO_ANSWER]) / counts.all) * 100 : 0}%` }} /></div>
             <div className="row2">
               <label className="sr-only" htmlFor="search">חיפוש תלמיד</label>
-              <input id="search" className="search" type="search" placeholder="חיפוש תלמיד" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input id="search" className="search" type="search" placeholder="חיפוש תלמיד" autoComplete="off" enterKeyHint="search"
+                value={query} onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }} />
               <NoAnswerButton rv={rv} count={counts[NO_ANSWER]} />
             </div>
           </div>
