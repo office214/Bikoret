@@ -12,10 +12,10 @@ type HistRow = {
 
 /* ======================= תוצאות ======================= */
 
-export function HistoryView() {
+export function HistoryView({ admin }: { admin: boolean }) {
   const [rows, setRows] = useState<HistRow[] | null>(null);
   const [err, setErr] = useState('');
-  const { dialog } = useUi();
+  const { dialog, toast } = useUi();
 
   useEffect(() => { api<HistRow[]>('/api/history').then(setRows).catch((e) => setErr(errMsg(e))); }, []);
 
@@ -26,9 +26,9 @@ export function HistoryView() {
       if (!groups.has(e.status)) groups.set(e.status, []);
       groups.get(e.status)!.push(`${e.last_name} ${e.first_name}`);
     });
-    await dialog({
+    const action = await dialog({
       title: `ביקורת #${r.number} — ${r.date_heb}`, cancel: false, ok: 'סגור',
-      body: 'error' in data ? <p>{data.error}</p> : (
+      body: (close) => 'error' in data ? <p>{data.error}</p> : (
         <>
           <p className="sub">{[r.time, r.type, pctText(r.pct)].filter(Boolean).join(' · ')} · <Result passed={r.passed} /></p>
           {!groups.size && <p>כל התלמידים היו נוכחים.</p>}
@@ -38,9 +38,21 @@ export function HistoryView() {
               <p style={{ margin: 0 }}>{names.join(' · ')}</p>
             </div>
           ))}
+          {admin && <button type="button" className="btn danger" style={{ marginTop: 16 }} onClick={() => close('delete')}>מחק ביקורת זו מהתוצאות</button>}
         </>
       ),
     });
+    if (action !== 'delete') return;
+    const ok = await dialog({
+      title: `מחיקת ביקורת #${r.number}`, ok: 'מחק לצמיתות',
+      body: <p><Warn />הביקורת מ-{r.date_heb} ({r.total} תלמידים) ותוצאותיה יימחקו לצמיתות. אי אפשר לבטל.</p>,
+    });
+    if (!ok) return;
+    try {
+      await api(`/api/history/${r.id}`, { method: 'DELETE' });
+      setRows((prev) => prev && prev.filter((x) => x.id !== r.id));
+      toast(`ביקורת #${r.number} נמחקה`);
+    } catch (e) { toast(errMsg(e)); }
   };
 
   return (

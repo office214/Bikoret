@@ -106,6 +106,16 @@ export async function updateMeta(reviewId: number, meta: { date_heb?: string; ti
   if (!rows.length) throw new HttpError(409, 'הביקורת כבר נסגרה');
 }
 
+/** מחיקת ביקורת סגורה מהתוצאות (מנהלים בלבד). המספר שלה יתפנה אם היא האחרונה. */
+export async function deleteClosedReview(reviewId: number, user: string) {
+  const sql = await db();
+  const [r] = await sql`delete from reviews where id = ${reviewId} and status = 'closed' returning number, date_heb, total`;
+  if (!r) throw new HttpError(404, 'הביקורת לא נמצאה');
+  await sql`delete from sms_log where review_id = ${reviewId}`;
+  await audit(user, 'delete-closed', { reviewId, number: r.number, date: r.date_heb, total: r.total });
+  return { number: r.number };
+}
+
 export async function discardReview(reviewId: number, user: string) {
   const sql = await db();
   await sql`delete from reviews where id = ${reviewId} and status = 'open'`;

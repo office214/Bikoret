@@ -203,7 +203,7 @@ function Shell({ user }: { user: User }) {
         {rv.smsTest && <div className="banner" role="note"><Warn />מצב בדיקת SMS פעיל — הודעות נשלחות רק למספר הבדיקה, לא לתלמידים.</div>}
         {tab === 'review' && rv.loaded && !rv.review && <Home rv={rv} />}
         {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} />}
-        {tab === 'history' && <HistoryView />}
+        {tab === 'history' && <HistoryView admin={user.admin} />}
         {tab === 'print' && <PrintView />}
         {tab === 'admin' && <AdminView user={user} rv={rv} counts={counts} goReview={() => go('review')} />}
       </main>
