@@ -44,7 +44,7 @@ export const pctText = (p: number | null | undefined) =>
 
 export function Result({ passed }: { passed: boolean | null }) {
   if (passed === null || passed === undefined) return null;
-  return passed ? <>עובר</> : <span className="fail"><Warn />נכשל</span>;
+  return passed ? <span className="pass">✓ עובר</span> : <span className="fail">✗ נכשל</span>;
 }
 
 /* ---------- אייקונים ---------- */

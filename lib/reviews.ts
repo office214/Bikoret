@@ -278,7 +278,7 @@ export async function printData(kind: string, count: number) {
   const sql = await db();
   const reviews = await sql`
     select id, number, date_heb, time, type, total, chaser, nirsham, bishuv, lo_ana, pct::float as pct, passed
-    from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(count, 1), 8)}`;
+    from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(count, 1), 10)}`;
   if (!reviews.length) return { reviews: [], rows: [] };
   if (kind === 'cover') return { reviews, rows: [] };
 

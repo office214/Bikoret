@@ -167,9 +167,19 @@ function Shell({ user }: { user: User }) {
   };
 
   const r = rv.review;
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty('--hdr', `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
     <div className="app">
-      <header className="top">
+      <header className="top" ref={headerRef}>
         <div className="bar">
           <div className="grow">
             <h1>{r ? `${typeLabel(r.type)} · ${r.session}` : 'ביקורת נוכחות'}</h1>
@@ -184,7 +194,7 @@ function Shell({ user }: { user: User }) {
             <div className="stats" role="group" aria-label="סינון לפי סטטוס">
               {(['all', ...STATUSES] as const).map((s) => (
                 <button key={s} className={'stat' + (s === NO_ANSWER ? ' warn' : '')} aria-pressed={filter === s} onClick={() => setFilter(s)}>
-                  <span className="n">{s === NO_ANSWER && counts[s] ? '⚠ ' : ''}{counts[s]}</span>
+                  <span className="n">{s === NO_ANSWER && counts[s] ? <small aria-hidden="true">⚠ </small> : ''}{counts[s]}</span>
                   <span className="l">{s === 'all' ? 'הכל' : s}</span>
                 </button>
               ))}
@@ -269,17 +279,18 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
   }
 
   return (
-    <div ref={listRef}>
+    <div ref={listRef} className="list-wrap">
+      <AlphaIndex letters={groups.map((g) => g[0])} />
       {groups.map(([letter, items]) => (
-        <section key={letter} aria-label={`אות ${letter}`}>
-          <h3 className="letter">{letter}</h3>
+        <section key={letter} aria-label={`אות ${letter}`} data-letter={letter}>
+          <h3 className="letter" id={`L-${letter}`}>{letter}</h3>
           <ul className="list">
             {items.map((e) => <StudentRow key={e.id} e={e} onSet={setStatus} onKey={onKey} />)}
           </ul>
         </section>
       ))}
       {noAnswer.length > 0 && filter === 'all' && !query && (
-        <div className="actions"><button className="btn ghost" onClick={bulk}>סמן את כל מי שלא ענה כנוכח ({noAnswer.length})</button></div>
+        <div className="bulk"><button className="btn ghost" onClick={bulk}>סמן את כל מי שלא ענה כנוכח ({noAnswer.length})</button></div>
       )}
     </div>
   );
@@ -294,17 +305,78 @@ const StudentRow = memoRow(function StudentRow({ e, onSet, onKey }: {
     <li className={'stu' + (na ? ' noans' : '')}>
       <div className="stu-name" id={labelId}>
         {e.last_name} {e.first_name}
-        {na && <span className="tag"><span aria-hidden="true">⚠</span> לא ענה</span>}
       </div>
       <div className="seg" role="radiogroup" aria-labelledby={labelId}>
         {STATUSES.map((s) => (
           <button key={s} role="radio" aria-checked={e.status === s} tabIndex={e.status === s ? 0 : -1} data-id={e.id}
+            className={s === NO_ANSWER ? 'na' : undefined}
             onClick={() => onSet(e, s)} onKeyDown={(ev) => onKey(ev, e)}>{s}</button>
         ))}
       </div>
     </li>
   );
 });
+
+/* ---------- פס אותיות בצד + בועת אות בגלילה ---------- */
+
+function AlphaIndex({ letters }: { letters: string[] }) {
+  const bar = useRef<HTMLDivElement>(null);
+  const [bubble, setBubble] = useState('');
+  const [active, setActive] = useState(false);
+  const hide = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const flash = useCallback((l: string) => {
+    setBubble(l);
+    clearTimeout(hide.current);
+    hide.current = setTimeout(() => setBubble(''), 650);
+  }, []);
+
+  // בזמן גלילה — בועה עם האות של הקטע הנוכחי
+  useEffect(() => {
+    let raf = 0;
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const fast = Math.abs(window.scrollY - lastY) > 40;
+        lastY = window.scrollY;
+        if (!fast && !active) return;
+        const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+        let cur = '';
+        document.querySelectorAll<HTMLElement>('section[data-letter]').forEach((sec) => {
+          if (sec.getBoundingClientRect().top - hdr <= 8) cur = sec.dataset.letter || '';
+        });
+        if (cur) flash(cur);
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
+  }, [flash, active]);
+
+  const pick = (clientY: number) => {
+    const el = bar.current;
+    if (!el || !letters.length) return;
+    const r = el.getBoundingClientRect();
+    const i = Math.min(letters.length - 1, Math.max(0, Math.floor(((clientY - r.top) / r.height) * letters.length)));
+    const l = letters[i];
+    document.getElementById(`L-${l}`)?.scrollIntoView({ block: 'start' });
+    flash(l);
+  };
+
+  if (letters.length < 4) return null;
+  return (
+    <>
+      <div ref={bar} className={'alpha' + (active ? ' active' : '')} aria-hidden="true"
+        onPointerDown={(e) => { setActive(true); e.currentTarget.setPointerCapture(e.pointerId); pick(e.clientY); }}
+        onPointerMove={(e) => { if (active) pick(e.clientY); }}
+        onPointerUp={() => setActive(false)} onPointerCancel={() => setActive(false)}>
+        {letters.map((l) => <span key={l}>{l}</span>)}
+      </div>
+      <div className={'bubble' + (bubble ? ' show' : '')} aria-hidden="true">{bubble}</div>
+    </>
+  );
+}
 
 // רינדור מחדש רק של השורה שהשתנתה — חשוב לרשימה של 150 תלמידים בטלפון
 function memoRow<T extends { e: Entry }>(C: React.FC<T>) {

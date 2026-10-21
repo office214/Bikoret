@@ -144,67 +144,94 @@ function StudentHistory() {
 
 type PrintReview = { id: number; number: number; date_heb: string; time: string; type: string; total: number; chaser: number; nirsham: number; bishuv: number; lo_ana: number; pct: number | null; passed: boolean | null };
 
+type PrintData = { reviews: PrintReview[]; rows: { last: string; first: string; statuses: string[] }[] };
+const REPORTS = [
+  { kind: 'cover', label: 'שער — סיכום' },
+  { kind: 'all', label: 'כללי' },
+  { kind: 'missing', label: 'חסר / לא ענה' },
+  { kind: 'bishuv', label: 'בישוב' },
+  { kind: 'nirsham', label: 'נרשם' },
+];
+
 export function PrintView() {
-  const [kind, setKind] = useState('all');
+  const [kind, setKind] = useState('everything');
   const [count, setCount] = useState(3);
-  const [data, setData] = useState<{ reviews: PrintReview[]; rows: { last: string; first: string; statuses: string[] }[] } | null>(null);
+  const [data, setData] = useState<PrintData | null>(null);
   const [err, setErr] = useState('');
 
+  // נתון אחד מהשרת (כל התלמידים), והסינונים נעשים כאן — מהיר יותר מ-5 קריאות
   useEffect(() => {
     setData(null); setErr('');
-    api<NonNullable<typeof data>>(`/api/print?kind=${kind}&count=${count}`).then(setData).catch((e) => setErr(errMsg(e)));
-  }, [kind, count]);
+    api<PrintData>(`/api/print?kind=all&count=${count}`).then(setData).catch((e) => setErr(errMsg(e)));
+  }, [count]);
 
-  const summary: [string, (r: PrintReview) => React.ReactNode][] = [
-    ['מס׳ ביקורת', (r) => r.number], ['תאריך', (r) => r.date_heb], ['שעה', (r) => r.time], ['סוג', (r) => r.type],
-    ['מס׳ תלמידים', (r) => r.total], ['חסר', (r) => r.chaser], ['נרשם', (r) => r.nirsham], ['סה״כ חסרים', (r) => r.chaser + r.nirsham],
-    ['בישוב', (r) => r.bishuv], ['לא ענה', (r) => r.lo_ana], ['אחוז נוכחות', (r) => pctText(r.pct)], ['עובר/נכשל', (r) => <Result passed={r.passed} />],
-  ];
-  const L = data?.reviews[0];
-  const title = !L ? '' : ({
-    cover: `תוצאות ביקורת (${L.total} תלמידים)`, all: `כלל הישיבה (${data!.rows.length})`,
-    missing: `חסר (${L.chaser}) לא ענה (${L.lo_ana})`, bishuv: `בישוב (${L.bishuv})`, nirsham: `נרשם (${L.nirsham})`,
-  } as Record<string, string>)[kind];
+  const kinds = kind === 'everything' ? REPORTS.map((r) => r.kind) : [kind];
+  const landscape = count > 4;
 
   return (
     <>
+      {landscape && <style>{'@media print { @page { size: A4 landscape; } }'}</style>}
       <div className="card no-print">
         <h2>הדפסה</h2>
-        <p className="sub">תלמידי הביקורת הנוכחית, לפי הביקורות האחרונות שנסגרו.</p>
+        <p className="sub">תלמידי הביקורת הנוכחית, לפי הביקורות האחרונות שנסגרו.{landscape ? ' יודפס לרוחב הדף.' : ''}</p>
         <div className="grid">
           <label className="f">דוח
             <select value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="cover">שער — סיכום</option><option value="all">כללי</option><option value="missing">חסר / לא ענה</option>
-              <option value="bishuv">בישוב</option><option value="nirsham">נרשם</option>
+              <option value="everything">הכל (שער, כללי, חסר/לא ענה, בישוב, נרשם)</option>
+              {REPORTS.map((r) => <option key={r.kind} value={r.kind}>{r.label}</option>)}
             </select>
           </label>
           <label className="f">מספר ביקורות
-            <select value={count} onChange={(e) => setCount(Number(e.target.value))}>{[1, 2, 3, 4, 5].map((n) => <option key={n}>{n}</option>)}</select>
+            <select value={count} onChange={(e) => setCount(Number(e.target.value))}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}</select>
           </label>
         </div>
         <div className="actions"><button className="btn solid" onClick={() => window.print()} disabled={!data?.reviews.length}>הדפס</button></div>
       </div>
       <div id="printArea">
         {err ? <div className="empty">{err}</div> : !data ? <div className="loading">טוען…</div> : !data.reviews.length ? <div className="empty">אין ביקורות סגורות.</div> : (
-          <>
-            <h2>{title}</h2>
-            <div className="twrap">
-              <table>
-                <thead>
-                  {summary.slice(kind === 'cover' ? 0 : 1).map(([label, get]) => (
-                    <tr key={label}><th colSpan={kind === 'cover' ? 1 : 2}>{label}</th>{data.reviews.map((r) => <th key={r.id} className="num">{get(r)}</th>)}</tr>
-                  ))}
-                  {kind !== 'cover' && <tr><th>שם משפחה</th><th>שם פרטי</th>{data.reviews.map((r) => <th key={r.id} className="num">{r.date_heb}</th>)}</tr>}
-                </thead>
-                {kind !== 'cover' && (
-                  <tbody>{data.rows.map((row, i) => <tr key={i}><td>{row.last}</td><td>{row.first}</td>{row.statuses.map((s, j) => <td key={j} className="num">{s}</td>)}</tr>)}</tbody>
-                )}
-              </table>
-            </div>
-          </>
+          kinds.map((k) => <PrintReport key={k} kind={k} data={data} />)
         )}
       </div>
     </>
+  );
+}
+
+function PrintReport({ kind, data }: { kind: string; data: PrintData }) {
+  const summary: [string, (r: PrintReview) => React.ReactNode][] = [
+    ['מס׳ ביקורת', (r) => r.number], ['תאריך', (r) => r.date_heb], ['שעה', (r) => r.time], ['סוג', (r) => typeLabel(r.type)],
+    ['מס׳ תלמידים', (r) => r.total], ['חסר', (r) => r.chaser], ['נרשם', (r) => r.nirsham], ['סה״כ חסרים', (r) => r.chaser + r.nirsham],
+    ['בישוב', (r) => r.bishuv], ['לא ענה', (r) => r.lo_ana], ['אחוז נוכחות', (r) => pctText(r.pct)], ['עובר/נכשל', (r) => <Result passed={r.passed} />],
+  ];
+  const L = data.reviews[0];
+  const rows = data.rows.filter((row) => {
+    const s = row.statuses[0];
+    if (kind === 'missing') return s === 'חסר' || s === 'לא ענה';
+    if (kind === 'bishuv') return s === 'בישוב';
+    if (kind === 'nirsham') return s === 'נרשם';
+    return true;
+  });
+  const title = ({
+    cover: `תוצאות ביקורת (${L.total} תלמידים)`, all: `כלל הישיבה (${rows.length})`,
+    missing: `חסר (${L.chaser}) לא ענה (${L.lo_ana})`, bishuv: `בישוב (${L.bishuv})`, nirsham: `נרשם (${L.nirsham})`,
+  } as Record<string, string>)[kind];
+  const cover = kind === 'cover';
+  return (
+    <section className="print-section">
+      <h2>{title}</h2>
+      <div className="twrap">
+        <table>
+          <thead>
+            {summary.slice(cover ? 0 : 1).map(([label, get]) => (
+              <tr key={label}><th colSpan={cover ? 1 : 2}>{label}</th>{data.reviews.map((r) => <th key={r.id} className="num">{get(r)}</th>)}</tr>
+            ))}
+            {!cover && <tr><th>שם משפחה</th><th>שם פרטי</th>{data.reviews.map((r) => <th key={r.id} className="num">{r.date_heb}</th>)}</tr>}
+          </thead>
+          {!cover && (
+            <tbody>{rows.map((row, i) => <tr key={i}><td>{row.last}</td><td>{row.first}</td>{row.statuses.map((st, j) => <td key={j} className="num">{st}</td>)}</tr>)}</tbody>
+          )}
+        </table>
+      </div>
+    </section>
   );
 }
 
