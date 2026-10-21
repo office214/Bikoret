@@ -257,3 +257,12 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
   .print-section + .print-section { break-before: page; margin-top: 0; }
   .alpha, .bubble { display: none !important; }
 }
+
+.pw { position: relative; display: block; }
+label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
+.pw-eye {
+  position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px; border: 0; background: none; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center; border-radius: 8px;
+}
+.pw-eye[aria-pressed="true"] { color: var(--text); }

@@ -440,12 +440,29 @@ function Passwords({ st, reload }: { st: AdminStatus; reload: () => void }) {
         {(['user', 'admin'] as const).map((role) => (
           <div key={role} className="f">
             <label className="f">{role === 'user' ? 'סיסמת כניסה חדשה' : 'סיסמת מנהל חדשה'}
-              <input type="password" autoComplete="new-password" minLength={6} value={pw[role]} onChange={(e) => setPw({ ...pw, [role]: e.target.value })} />
+              <PasswordInput value={pw[role]} onChange={(v) => setPw({ ...pw, [role]: v })} />
             </label>
             <AsyncButton className="btn solid" disabled={pw[role].length < 6} onClick={() => save(role)}>שמור</AsyncButton>
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+function PasswordInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="pw">
+      <input type={show ? 'text' : 'password'} autoComplete="new-password" minLength={6} value={value}
+        onChange={(e) => onChange(e.target.value)} spellCheck={false} autoCapitalize="off" />
+      <button type="button" className="pw-eye" onClick={() => setShow(!show)}
+        aria-label={show ? 'הסתר סיסמה' : 'הצג סיסמה'} aria-pressed={show}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" />
+          {show && <path d="M3 3l18 18" />}
+        </svg>
+      </button>
+    </span>
   );
 }
