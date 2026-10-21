@@ -241,6 +241,7 @@ function PrintReport({ kind, data }: { kind: string; data: PrintData }) {
 type AdminStatus = {
   google: boolean; sheetsEmail: string;
   reviews: { imported: number; closed: number; last_number: number | null };
+  passwords: { user: boolean; admin: boolean };
   sms: { token: string; username: string; source: string; adminPhone: string; ready: boolean; fromEnv: Record<string, boolean>; testPhone: string };
 };
 
@@ -252,7 +253,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
   const [meta, setMeta] = useState({ date_heb: r?.date_heb || '', time: r?.time || '', type: r?.type || 'פנימית' });
   useEffect(() => { setMeta({ date_heb: r?.date_heb || '', time: r?.time || '', type: r?.type || 'פנימית' }); }, [r?.id, r?.date_heb, r?.time, r?.type]);
 
-  const loadStatus = useCallback(() => api<AdminStatus>('/api/admin/status').then(setSt).catch(() => {}), []);
+  const loadStatus = useCallback(() => { if (user.admin) api<AdminStatus>('/api/admin/status').then(setSt).catch(() => {}); }, [user.admin]);
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
   const saveMeta = async () => {
@@ -367,6 +368,7 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
     <div className="card">
       <h2>הגדרות מערכת</h2>
       <p className="sub">מוצג רק למנהלים.</p>
+      <Passwords st={st} reload={reload} />
       <Line ok={!!st.sheetsEmail}>{st.sheetsEmail ? `מסד התלמידים מחובר דרך ${st.sheetsEmail}` : 'מסד התלמידים עדיין לא מחובר'}</Line>
       <Line ok={st.reviews.imported > 0}>{st.reviews.imported ? `יובאו ${st.reviews.imported} ביקורות מהגיליון הישן` : 'ההיסטוריה עדיין לא יובאה'}</Line>
       <Line ok={st.sms.ready}>{st.sms.ready ? `SMS מוגדר (${st.sms.username}, שולח ${st.sms.source})` : 'SMS עדיין לא מוגדר'}</Line>
@@ -404,6 +406,46 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
           <div className="f" style={{ justifyContent: 'flex-end' }}><AsyncButton className="btn solid" disabled={!testPhone.trim()} onClick={() => setTest(true)}>הפעל מצב בדיקה</AsyncButton></div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Passwords({ st, reload }: { st: AdminStatus; reload: () => void }) {
+  const { toast, dialog } = useUi();
+  const [pw, setPw] = useState({ user: '', admin: '' });
+  const save = async (role: 'user' | 'admin') => {
+    const label = role === 'user' ? 'סיסמת הכניסה' : 'סיסמת המנהל';
+    const ok = await dialog({
+      title: `שינוי ${label}`, ok: 'שמור',
+      body: <p>כל מי שמחובר כרגע עם {label} הישנה ינותק ויצטרך להיכנס שוב עם החדשה.</p>,
+    });
+    if (!ok) return;
+    try {
+      await api('/api/admin/passwords', { body: { role, password: pw[role] } });
+      setPw({ ...pw, [role]: '' }); reload();
+      toast(`${label} נשמרה`);
+      if (role === 'admin') window.location.href = '/login';
+    } catch (e) { toast(errMsg(e)); }
+  };
+  const Line = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
+    <div className="okline"><span className={'dot ' + (ok ? 'on' : 'off')} aria-hidden="true" /><span>{ok ? '✓' : '⚠'} {children}</span></div>
+  );
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <h3 style={{ margin: '4px 0', fontSize: '1em' }}>סיסמאות כניסה</h3>
+      <p className="sub">סיסמת כניסה — לכל מי שעושה ביקורות. סיסמת מנהל — נותנת גם גישה להגדרות, SMS ומחיקת ביקורות. שתיהן לפחות 6 תווים.</p>
+      <Line ok={st.passwords.user}>{st.passwords.user ? 'סיסמת כניסה מוגדרת' : 'סיסמת כניסה עוד לא הוגדרה — אף אחד לא יכול להיכנס עם סיסמה'}</Line>
+      <Line ok={st.passwords.admin}>{st.passwords.admin ? 'סיסמת מנהל מוגדרת' : 'סיסמת מנהל עוד לא הוגדרה'}</Line>
+      <div className="grid" style={{ marginTop: 8 }}>
+        {(['user', 'admin'] as const).map((role) => (
+          <div key={role} className="f">
+            <label className="f">{role === 'user' ? 'סיסמת כניסה חדשה' : 'סיסמת מנהל חדשה'}
+              <input type="password" autoComplete="new-password" minLength={6} value={pw[role]} onChange={(e) => setPw({ ...pw, [role]: e.target.value })} />
+            </label>
+            <AsyncButton className="btn solid" disabled={pw[role].length < 6} onClick={() => save(role)}>שמור</AsyncButton>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

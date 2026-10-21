@@ -29,11 +29,11 @@ export async function GET(req: Request) {
       return fail(req, 'token');
     }
     const email = claims.email.toLowerCase();
-    if (!isAllowed(email)) return fail(req, 'forbidden');
+    // כניסה עם Google נשארת רק למנהלים (הגדרה ראשונה ושחזור). כולם נכנסים עם סיסמה.
+    if (!isAllowed(email) || !isAdmin(email)) return fail(req, 'forbidden');
 
     let dest = '/';
     if (connectFlag === '1') {
-      if (!isAdmin(email)) return fail(req, 'admin');
       if (!tok.refresh_token || !(tok.scope || '').includes(SHEETS_SCOPE)) return fail(req, 'scope');
       await saveSheetsConnection(tok.refresh_token, email);
       await audit(email, 'connect-sheets');
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     }
 
     const res = NextResponse.redirect(new URL(dest, req.url));
-    res.cookies.set(SESSION_COOKIE, await createSession(email, claims.name || email), sessionCookieOptions);
+    res.cookies.set(SESSION_COOKIE, await createSession(email, 'admin', 'google'), sessionCookieOptions);
     res.cookies.delete('bk_oauth');
     return res;
   } catch (e) {

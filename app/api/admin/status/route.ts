@@ -4,6 +4,7 @@ import { sheetsConnectedEmail, googleConfigured } from '@/lib/google';
 import { smsSettings } from '@/lib/sms';
 import { getSetting } from '@/lib/secure';
 import { SMS_TEST_KEY } from '@/lib/reviews';
+import { passwordsStatus } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +22,10 @@ export const GET = handler(async () => {
     google: googleConfigured(),
     sheetsEmail: await sheetsConnectedEmail(),
     reviews: counts,
+    passwords: await passwordsStatus(),
     sms: {
       token: mask(s.token), username: s.username, source: s.source, adminPhone: s.adminPhone,
       fromEnv: s.fromEnv, ready: !!(s.token && s.username && s.source), testPhone: await getSetting(SMS_TEST_KEY),
     },
   };
-});
+}, { admin: true });
