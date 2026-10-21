@@ -244,11 +244,10 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
   if (!rv.loaded) return <div className="loading">טוען את הביקורת…</div>;
   if (!rv.review) return null;
 
-  const setStatus = (e: Entry, s: Status, silent = false) => {
+  // בלי הודעה קופצת על כל סימון — טעות מתקנים בלחיצה על הכפתור הנכון
+  const setStatus = (e: Entry, s: Status, _silent = false) => {
     if (e.status === s) return;
-    const prev = e.status;
     rv.mark(e.id, s);
-    if (!silent) toast(`${e.last_name} ${e.first_name} — ${s}`, { label: 'בטל', run: () => rv.mark(e.id, prev) });
   };
 
   const onKey = (ev: React.KeyboardEvent, e: Entry) => {
