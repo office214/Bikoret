@@ -23,6 +23,7 @@ function useReview() {
   const [loaded, setLoaded] = useState(false);
   const [smsTest, setSmsTest] = useState(false);
   const [session, setSession] = useState('');
+  const [groupText, setGroupText] = useState('');
   const [sync, setSync] = useState<{ text: string; err?: boolean }>({ text: 'טוען…' });
   const pending = useRef(new Map<string, Status>());
   const since = useRef<string>('');
@@ -31,10 +32,11 @@ function useReview() {
 
   const load = useCallback(async (full = false) => {
     const q = !full && since.current && reviewId.current ? `?since=${encodeURIComponent(since.current)}` : '';
-    const r = await api<{ review: Review | null; entries: Entry[]; full: boolean; now: string; smsTest: boolean; session: string }>(`/api/review${q}`);
+    const r = await api<{ review: Review | null; entries: Entry[]; full: boolean; now: string; smsTest: boolean; session: string; groupText?: string }>(`/api/review${q}`);
     since.current = r.now;
     setSmsTest(r.smsTest);
     setSession(r.session);
+    setGroupText(r.groupText || '');
     if ((r.review?.id ?? null) !== reviewId.current && !r.full) return load(true);
     reviewId.current = r.review?.id ?? null;
     setReview(r.review);
@@ -121,7 +123,7 @@ function useReview() {
     while (pending.current.size || inflight.current) await new Promise((r) => setTimeout(r, 200));
   }, [flush]);
 
-  return { review, entries, loaded, sync, smsTest, session, mark, markAll, reload: () => load(true), waitSaved };
+  return { review, entries, loaded, sync, smsTest, session, groupText, mark, markAll, reload: () => load(true), waitSaved };
 }
 export type ReviewState = ReturnType<typeof useReview>;
 

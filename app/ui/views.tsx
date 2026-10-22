@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, AsyncButton, errMsg, NO_ANSWER, pctText, Result, STATUSES, TYPES, typeLabel, useUi, Warn } from './kit';
 import type { ReviewState } from './App';
-import { useSms } from './useSms';
+import { openWhatsApp, useSms } from './useSms';
 
 type HistRow = {
   id: number; number: number; session: string; type: string; date_heb: string; time: string; total: number; present: number;
@@ -304,6 +304,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
             <div className="actions">
               <AsyncButton className="btn solid" busyText="שולח…" onClick={() => sms('start', counts[NO_ANSWER])}>סמס התחלה</AsyncButton>
               <AsyncButton className="btn" busyText="שולח…" onClick={() => sms('noanswer', counts[NO_ANSWER])}>סמס לא ענו</AsyncButton>
+              <button className="btn wa" disabled={!rv.groupText} onClick={() => openWhatsApp(rv.groupText)}>הודעה לקבוצת הוואטסאפ</button>
             </div>
           </div>
 

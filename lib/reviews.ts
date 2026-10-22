@@ -28,7 +28,8 @@ export async function currentReview(since?: string) {
     ? await sql`select student_id as id, last_name, first_name, status, updated_at from entries where review_id = ${review.id} order by last_name, first_name`
     : await sql`select student_id as id, last_name, first_name, status, updated_at from entries where review_id = ${review.id} and updated_at > ${since}`;
   const [{ now }] = await sql`select now() as now`;
-  return { review, entries, full, now, smsTest, session: autoSession() };
+  const groupText = smsText('start', 'HE', review.type, review.time);
+  return { review, entries, full, now, smsTest, session: autoSession(), groupText };
 }
 
 export const SMS_TEST_KEY = 'sms_test_phone';
@@ -166,7 +167,9 @@ export async function sendReviewSms(reviewId: number, kind: SmsKind, force: bool
   const targets = await sql`
     select student_id, last_name, first_name, phone, lang from entries
     where review_id = ${reviewId} and status = ${NO_ANSWER} order by last_name, first_name`;
-  if (!targets.length) return { target: 0, sent: 0, missing: [], errors: [] };
+  // נוסח לקבוצת הוואטסאפ של הישיבה (עברית), נשלח ידנית מהטלפון
+  const groupText = smsText(kind, 'HE', review.type, review.time);
+  if (!targets.length) return { target: 0, sent: 0, missing: [], errors: [], groupText };
 
   const settings = await smsSettings();
   const label = kind === 'start' ? 'סמס התחלה' : 'סמס לא ענו';
@@ -207,7 +210,7 @@ export async function sendReviewSms(reviewId: number, kind: SmsKind, force: bool
       }
     }
     await audit(user, 'sms-test', { reviewId, kind, messages: sentTest, errors: errors.length });
-    return { target: targets.length, sent: 0, missing, errors, test: { phone: testPhone, messages: sentTest } };
+    return { target: targets.length, sent: 0, missing, errors, test: { phone: testPhone, messages: sentTest }, groupText };
   }
 
   await adminReport(`↖️ מתחיל ${label} | יעד: ${targets.length}`);
@@ -230,7 +233,7 @@ export async function sendReviewSms(reviewId: number, kind: SmsKind, force: bool
   await adminReport(`${kind === 'start' ? '🟢' : '🔴'} דוח ${label}:\nנשלחו: ${sent}\nדולגו (חסר טלפון): ${missing.length}\n` +
     (errors.length ? `\nשגיאות:\n- ${errors.join('\n- ')}` : '\nללא שגיאות ✅'));
   await audit(user, 'sms', { reviewId, kind, sent, missing: missing.length, errors: errors.length });
-  return { target: targets.length, sent, missing, errors };
+  return { target: targets.length, sent, missing, errors, groupText };
 }
 
 /* ---------- תוצאות ---------- */

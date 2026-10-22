@@ -266,3 +266,7 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
   display: grid; place-items: center; border-radius: 8px;
 }
 .pw-eye[aria-pressed="true"] { color: var(--text); }
+
+.btn.wa { background: #e7f8ee; border-color: #25a35a; color: #12643a; }
+:root[data-theme="dark"] .btn.wa { background: #12331f; color: #b7f0cb; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.wa { background: #12331f; color: #b7f0cb; } }
