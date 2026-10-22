@@ -363,7 +363,12 @@ function AlphaIndex({ letters }: { letters: string[] }) {
     const r = el.getBoundingClientRect();
     const i = Math.min(letters.length - 1, Math.max(0, Math.floor(((clientY - r.top) / r.height) * letters.length)));
     const l = letters[i];
-    document.getElementById(`L-${l}`)?.scrollIntoView({ block: 'start' });
+    // גוללים לתחילת הקטע ולא לכותרת: הכותרת דביקה, והמיקום שלה הוא מיקום ה"נעיצה" (סוף הקטע)
+    const sec = document.querySelector<HTMLElement>(`section[data-letter="${CSS.escape(l)}"]`);
+    if (sec) {
+      const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+      window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - hdr, behavior: 'instant' });
+    }
     flash(l);
   };
 
