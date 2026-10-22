@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /*
  * נעילה בכל פתיחה: עוגיית הכניסה נשמרת בטלפון גם כשסוגרים את האפליקציה,
  * לכן מסמנים את הכניסה ב-sessionStorage — שנמחק כשהלשונית/האפליקציה נסגרת.
- * בנוסף ננעל אחרי 30 דקות ברקע.
+ * בנוסף ננעל אחרי שעה ברקע.
  */
 const KEY = 'bk_open';
 const HIDDEN_KEY = 'bk_hidden_at';
-const IDLE_MS = 30 * 60_000;
+const IDLE_MS = 60 * 60_000;
 
 /** נקרא ברגע השליחה של טופס הכניסה */
 export function markOpened() {
@@ -44,11 +44,34 @@ export function LockGate({ children }: { children: ReactNode }) {
   return ok ? <>{children}</> : null;
 }
 
-/** טופס הכניסה — מסמן פתיחה לפני השליחה הרגילה */
-export function LoginForm({ children }: { children: ReactNode }) {
-  return <form className="card" method="post" action="/api/auth/password" onSubmit={markOpened}>{children}</form>;
-}
+const NAME_KEY = 'bk_name';
 
-export function GoogleLink() {
-  return <a href="/api/auth/login" onClick={markOpened} style={{ color: 'inherit' }}>כניסת מנהל עם Google</a>;
+/**
+ * טופס הכניסה. המקלדת לא נפתחת לבד — כדי שאפשר יהיה ללחוץ ישר על Google.
+ * Enter בשם עובר לסיסמה, Enter בסיסמה נכנס. השם האחרון נזכר במכשיר.
+ */
+export function LoginForm({ error }: { error?: ReactNode }) {
+  const pw = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState('');
+  useEffect(() => { try { setName(localStorage.getItem(NAME_KEY) || ''); } catch {} }, []);
+
+  return (
+    <form className="card" method="post" action="/api/auth/password"
+      onSubmit={() => { markOpened(); try { localStorage.setItem(NAME_KEY, name.trim()); } catch {} }}>
+      <h1>ביקורת נוכחות</h1>
+      <p className="sub">הקלד את שמך ואת סיסמת הכניסה</p>
+      <label className="f" style={{ textAlign: 'right' }}>שם
+        <input name="name" autoComplete="name" required maxLength={40} enterKeyHint="next"
+          value={name} onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); pw.current?.focus(); } }} />
+      </label>
+      <label className="f" style={{ textAlign: 'right', marginTop: 10 }}>סיסמה
+        <input ref={pw} name="password" type="password" autoComplete="current-password" required enterKeyHint="go" />
+      </label>
+      <button className="btn solid" type="submit" style={{ width: '100%', marginTop: 16 }}>כניסה</button>
+      {error}
+      <div className="or"><span>או</span></div>
+      <a className="btn" href="/api/auth/login" onClick={markOpened} style={{ width: '100%' }}>כניסת מנהל עם Google</a>
+    </form>
+  );
 }

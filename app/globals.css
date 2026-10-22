@@ -219,6 +219,9 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 .login { min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
 .login .card { width: min(420px, 100%); padding: 28px; text-align: center; }
 .login h1 { margin: 0 0 6px; font-size: 1.5em; }
+.login .or { display: flex; align-items: center; gap: 10px; margin: 18px 0 12px; color: var(--muted); font-size: .85em; }
+.login .or::before, .login .or::after { content: ''; flex: 1; border-top: 1px solid var(--line, #d0d7de); }
+.login a.btn { text-decoration: none; justify-content: center; }
 .login .err { color: var(--warn); font-weight: 700; margin: 12px 0 0; }
 
 #printArea h2 { text-align: center; margin: 6px 0 12px; }
