@@ -5,6 +5,7 @@ import { api, AsyncButton, errMsg, Icon, NO_ANSWER, STATUSES, UiProvider, useUi,
 import { AdminView, HistoryView, PrintView } from './views';
 import { useSms } from './useSms';
 import { typeLabel } from './kit';
+import { LockGate } from './lock';
 
 type User = { email: string; name: string; admin: boolean };
 export type Review = { id: number; number: number | null; session: string; type: string; date_heb: string; time: string };
@@ -12,7 +13,7 @@ export type Entry = { id: string; last_name: string; first_name: string; status:
 type Tab = 'review' | 'history' | 'print' | 'admin';
 
 export default function App({ user }: { user: User }) {
-  return <UiProvider><Shell user={user} /></UiProvider>;
+  return <LockGate><UiProvider><Shell user={user} /></UiProvider></LockGate>;
 }
 
 /* ---------- סנכרון הביקורת הפתוחה ---------- */

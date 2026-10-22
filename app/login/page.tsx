@@ -1,5 +1,4 @@
-import { redirect } from 'next/navigation';
-import { getUser } from '@/lib/auth';
+import { GoogleLink, LoginForm } from '../ui/lock';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +16,9 @@ const ERRORS: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
-  if (!error && (await getUser())) redirect('/');
   return (
     <div className="login">
-      <form className="card" method="post" action="/api/auth/password">
+      <LoginForm>
         <h1>ביקורת נוכחות</h1>
         <p className="sub">הקלד את שמך ואת סיסמת הכניסה</p>
         <label className="f" style={{ textAlign: 'right' }}>שם
@@ -31,8 +29,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </label>
         <button className="btn solid" type="submit" style={{ width: '100%', marginTop: 16 }}>כניסה</button>
         {error && <p className="err" role="alert">{ERRORS[error] || 'הכניסה נכשלה.'}</p>}
-        <p className="sub" style={{ marginTop: 18 }}><a href="/api/auth/login" style={{ color: 'inherit' }}>כניסת מנהל עם Google</a></p>
-      </form>
+        <p className="sub" style={{ marginTop: 18 }}><GoogleLink /></p>
+      </LoginForm>
     </div>
   );
 }
