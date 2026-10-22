@@ -55,6 +55,33 @@ export function LoginForm({ error }: { error?: ReactNode }) {
   const [name, setName] = useState('');
   useEffect(() => { try { setName(localStorage.getItem(NAME_KEY) || ''); } catch {} }, []);
 
+  // בטלפון הדפדפן מחזיר לפעמים את הסמן לשדה (חזרה לדף, שחזור לשונית, מילוי אוטומטי)
+  // ואז המקלדת קופצת. עד שהמשתמש נוגע במסך — מורידים כל פוקוס משדות.
+  useEffect(() => {
+    let touched = false;
+    const blur = () => {
+      const el = document.activeElement;
+      if (!touched && el instanceof HTMLInputElement) el.blur();
+    };
+    const onTouch = () => { touched = true; };
+    const onShow = () => { touched = false; blur(); };
+    const onVis = () => { if (document.visibilityState === 'visible') onShow(); };
+    const timers = [0, 150, 400, 900].map((ms) => setTimeout(blur, ms));
+    document.addEventListener('focusin', blur);
+    document.addEventListener('pointerdown', onTouch, true);
+    document.addEventListener('keydown', onTouch, true);
+    window.addEventListener('pageshow', onShow);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      timers.forEach(clearTimeout);
+      document.removeEventListener('focusin', blur);
+      document.removeEventListener('pointerdown', onTouch, true);
+      document.removeEventListener('keydown', onTouch, true);
+      window.removeEventListener('pageshow', onShow);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+
   return (
     <form className="card" method="post" action="/api/auth/password"
       onSubmit={() => { markOpened(); try { localStorage.setItem(NAME_KEY, name.trim()); } catch {} }}>
