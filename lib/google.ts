@@ -8,7 +8,8 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 
 export function redirectUri(req: Request) {
-  return `${config.appUrl || new URL(req.url).origin}/api/auth/callback`;
+  // לפי הכתובת שממנה נכנסו (vercel.app או הדומיין של הישיבה) — כדי שעוגיית ה-state תתאים
+  return `${new URL(req.url).origin || config.appUrl}/api/auth/callback`;
 }
 
 export function googleConfigured() {

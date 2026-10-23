@@ -405,9 +405,9 @@ function NoAnswerButton({ rv, count }: { rv: ReviewState; count: number }) {
 /* ---------- מסך הבית: בחירת סוג ביקורת ---------- */
 
 const START_TYPES = [
-  { type: 'פנימית', title: 'ביקורת פנימית', sub: 'כל התלמידים' },
-  { type: 'חיצונית 00', title: 'ביקורת אמת 00', sub: 'תלמידי 00 בלבד' },
-  { type: 'חיצונית 02', title: 'ביקורת אמת 02', sub: 'תלמידי 02 בלבד' },
+  { type: 'פנימית', title: 'פנימית', sub: 'כל התלמידים' },
+  { type: 'חיצונית 00', title: 'אמת 00', sub: 'תלמידי 00' },
+  { type: 'חיצונית 02', title: 'אמת 02', sub: 'תלמידי 02' },
 ];
 
 function Home({ rv }: { rv: ReviewState }) {
@@ -434,12 +434,16 @@ function Home({ rv }: { rv: ReviewState }) {
   return (
     <div className="home">
       <p className="sub">ביקורת חדשה · {rv.session || '…'} (נקבע לפי השעה)</p>
-      {START_TYPES.map((t) => (
-        <button key={t.type} className="start" onClick={() => start(t.type)} disabled={!!busy} aria-busy={busy === t.type}>
-          <span className="t">{busy === t.type ? 'טוען תלמידים…' : t.title}</span>
-          <span className="s">{t.sub}</span>
-        </button>
-      ))}
+      <div className="starts">
+        {START_TYPES.map((t) => (
+          <button key={t.type} className="start" onClick={() => start(t.type)} disabled={!!busy} aria-busy={busy === t.type}
+            aria-label={`ביקורת ${t.title} — ${t.sub}`}>
+            <span className="k">ביקורת</span>
+            <span className="t">{busy === t.type ? 'טוען…' : t.title}</span>
+            <span className="s">{t.sub}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
