@@ -405,15 +405,37 @@ function NoAnswerButton({ rv, count }: { rv: ReviewState; count: number }) {
 /* ---------- מסך הבית: בחירת סוג ביקורת ---------- */
 
 const START_TYPES = [
-  { type: 'פנימית', title: 'פנימית', sub: 'כל התלמידים' },
-  { type: 'חיצונית 00', title: 'אמת 00', sub: 'תלמידי 00' },
-  { type: 'חיצונית 02', title: 'אמת 02', sub: 'תלמידי 02' },
+  { type: 'פנימית', title: 'פנימית', sub: 'כל התלמידים', urgent: false },
+  { type: 'חיצונית 00', title: 'אמת 00', sub: 'תלמידי 00', urgent: true },
+  { type: 'חיצונית 02', title: 'אמת 02', sub: 'תלמידי 02', urgent: true },
 ];
 
 function Home({ rv }: { rv: ReviewState }) {
   const { toast } = useUi();
   const sms = useSms(rv);
   const [busy, setBusy] = useState('');
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // גודל הריבועים לפי המקום שבאמת נשאר על המסך (אחרי כותרת, באנרים וסרגל תחתון) — בלי גלילה
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const GAP = 12;
+    const fit = () => {
+      // המקום מתחילת הריבועים ועד סוף המסך, פחות מה שהדף שומר מתחתיהם (ריווח מעל הסרגל התחתון)
+      const pad = (el: Element | null) => (el ? parseFloat(getComputedStyle(el).paddingBottom) || 0 : 0);
+      const below = pad(box.closest('main')) + pad(box.closest('.app'));
+      const avail = window.innerHeight - (box.getBoundingClientRect().top + window.scrollY) - below;
+      const size = Math.max(96, Math.min(box.clientWidth, (avail - GAP * 2) / 3));
+      box.style.setProperty('--sq-size', `${Math.floor(size)}px`);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(document.body);
+    window.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('resize', fit);
+    return () => { ro.disconnect(); window.removeEventListener('resize', fit); window.visualViewport?.removeEventListener('resize', fit); };
+  }, []);
 
   const start = async (type: string) => {
     if (busy) return;
@@ -434,11 +456,11 @@ function Home({ rv }: { rv: ReviewState }) {
   return (
     <div className="home">
       <p className="sub">ביקורת חדשה · {rv.session || '…'} (נקבע לפי השעה)</p>
-      <div className="starts">
+      <div className="starts" ref={boxRef}>
         {START_TYPES.map((t) => (
-          <button key={t.type} className="start" onClick={() => start(t.type)} disabled={!!busy} aria-busy={busy === t.type}
+          <button key={t.type} className={'start' + (t.urgent ? ' urgent' : '')} onClick={() => start(t.type)} disabled={!!busy} aria-busy={busy === t.type}
             aria-label={`ביקורת ${t.title} — ${t.sub}`}>
-            <span className="k">ביקורת</span>
+            <span className="k">{t.urgent && <span className="siren" aria-hidden="true" />}ביקורת</span>
             <span className="t">{busy === t.type ? 'טוען…' : t.title}</span>
             <span className="s">{t.sub}</span>
           </button>
