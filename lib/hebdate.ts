@@ -33,6 +33,11 @@ export function timeHHmm(d = new Date()): string {
  * מחוץ לשעות האלה — לפי הקרוב: לפני 14:00 בוקר, אחרי 14:00 צהריים.
  */
 export function autoSession(d = new Date()): 'בוקר' | 'צהריים' {
-  const [h, m] = timeHHmm(d).split(':').map(Number);
+  return sessionForTime(timeHHmm(d));
+}
+
+/** חלק היום לפי שעה בפורמט HH:mm */
+export function sessionForTime(hhmm: string): 'בוקר' | 'צהריים' {
+  const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m < 14 * 60 ? 'בוקר' : 'צהריים';
 }

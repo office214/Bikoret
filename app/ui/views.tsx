@@ -256,13 +256,62 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
   const loadStatus = useCallback(() => { if (user.admin) api<AdminStatus>('/api/admin/status').then(setSt).catch(() => {}); }, [user.admin]);
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
-  const saveMeta = async () => {
-    try { await api(`/api/review/${r!.id}`, { method: 'PATCH', body: meta }); await rv.reload(); toast('הפרטים נשמרו'); }
-    catch (e) { toast(errMsg(e)); }
+  /**
+   * שומר את הפרטים. אם השעה/הסוג משנים את רשימת התלמידים — שואל אם לסנכרן.
+   * מחזיר false אם המשתמש ביטל.
+   */
+  const persistMeta = async (quiet = false): Promise<boolean> => {
+    type Diff = { from: { session: string; type: string }; to: { session: string; type: string }; kept: number; added: string[]; removed: string[]; removedMarked: string[] };
+    try {
+      const res = await api<{ ok?: true; needsResync?: true; diff?: Diff }>(`/api/review/${r!.id}`, { method: 'PATCH', body: meta });
+      if (res.needsResync && res.diff) {
+        const d = res.diff;
+        const what = [
+          d.from.session !== d.to.session && `מ${d.from.session} ל${d.to.session}`,
+          d.from.type !== d.to.type && `מ${typeLabel(d.from.type)} ל${typeLabel(d.to.type)}`,
+        ].filter(Boolean).join(' ו');
+        const names = (list: string[]) => list.length > 0 && (
+          <details><summary>הצג שמות</summary><p className="sub" style={{ margin: '4px 0 0' }}>{list.join(' · ')}</p></details>
+        );
+        const choice = await dialog({
+          title: 'לסנכרן את רשימת התלמידים?', ok: false, cancel: 'ביטול',
+          body: (done) => (
+            <>
+              <p>הביקורת עוברת {what}, ולכן רשימת התלמידים שונה.</p>
+              <ul className="resync">
+                <li><b>{d.kept}</b> תלמידים נשארים — עם הסימון שכבר יש להם</li>
+                <li><b>{d.added.length}</b> נוספים כ&quot;לא ענה&quot;{names(d.added)}</li>
+                <li><b>{d.removed.length}</b> יוצאים מהביקורת{names(d.removed)}</li>
+              </ul>
+              {d.removedMarked.length > 0 && <p className="warn-ic">⚠ {d.removedMarked.length} מהיוצאים כבר סומנו, והסימון שלהם יימחק: {d.removedMarked.join(' · ')}</p>}
+              <div className="actions">
+                <button type="button" className="btn solid" onClick={() => done('apply')}>סנכרן תלמידים</button>
+                <button type="button" className="btn" onClick={() => done('skip')}>שמור בלי לסנכרן</button>
+              </div>
+            </>
+          ),
+        });
+        if (choice !== 'apply' && choice !== 'skip') return false;
+        await rv.waitSaved();
+        const r2 = await api<{ diff?: Diff }>(`/api/review/${r!.id}`, { method: 'PATCH', body: { ...meta, resync: choice } });
+        await rv.reload();
+        if (choice === 'apply' && r2.diff) toast(`סונכרן: ${r2.diff.added.length} נוספו, ${r2.diff.removed.length} יצאו`);
+        else if (!quiet) toast('הפרטים נשמרו');
+        return true;
+      }
+      await rv.reload();
+      if (!quiet) toast('הפרטים נשמרו');
+      return true;
+    } catch (e) { toast(errMsg(e)); return false; }
   };
+  const saveMeta = async () => { await persistMeta(); };
 
   const close = async () => {
     if (!r) return;
+    // שעה/סוג ששונו ולא נשמרו — קודם שומרים (ושואלים על סנכרון אם צריך)
+    if (meta.time !== r.time || meta.type !== r.type || meta.date_heb !== r.date_heb) {
+      if (!(await persistMeta(true))) return;
+    }
     const pct = counts.all ? Math.round(((counts['נוכח'] + counts['בישוב']) / counts.all) * 1000) / 10 : 0;
     const ok = await dialog({
       title: 'סגירת ביקורת', ok: 'סגור ושמור',

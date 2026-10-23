@@ -1,6 +1,6 @@
 import { config, NO_ANSWER, REVIEW_TYPES, SESSIONS, STATUSES, type Status } from './config';
 import { audit, db } from './db';
-import { autoSession, hebrewDateShort, timeHHmm } from './hebdate';
+import { autoSession, hebrewDateShort, sessionForTime, timeHHmm } from './hebdate';
 import { getSetting } from './secure';
 import { HttpError } from './http';
 import { readSheet } from './google';
@@ -105,6 +105,79 @@ export async function updateMeta(reviewId: number, meta: { date_heb?: string; ti
   if (!Object.keys(patch).length) return;
   const rows = await sql`update reviews set ${sql(patch)} where id = ${reviewId} and status = 'open' returning id`;
   if (!rows.length) throw new HttpError(409, 'הביקורת כבר נסגרה');
+}
+
+type Meta = { date_heb?: string; time?: string; type?: string };
+export type ResyncDiff = {
+  from: { session: string; type: string }; to: { session: string; type: string };
+  kept: number; added: string[]; removed: string[]; removedMarked: string[];
+};
+
+/**
+ * שמירת פרטי ביקורת פתוחה. אם השעה מעבירה אותה לחלק יום אחר (בוקר/צהריים) או שהסוג השתנה —
+ * רשימת התלמידים אמורה להשתנות, ולכן:
+ *  resync לא נשלח → לא שומרים כלום, מחזירים תצוגה מקדימה של השינוי כדי לשאול את המשתמש;
+ *  'apply' → מסנכרנים: מי שבשתי הרשימות נשאר עם הסימון שלו, מי שלא שייך יוצא, חדשים נכנסים כ"לא ענה";
+ *  'skip' → שומרים רק את הפרטים, בלי לגעת בתלמידים.
+ */
+export async function saveMeta(reviewId: number, meta: Meta, resync: 'apply' | 'skip' | undefined, user: string) {
+  const sql = await db();
+  const [r] = await sql<ReviewMeta[]>`select * from reviews where id = ${reviewId} and status = 'open'`;
+  if (!r) throw new HttpError(409, 'הביקורת כבר נסגרה');
+  if (meta.time && !/^\d{1,2}:\d{2}$/.test(meta.time)) throw new HttpError(400, 'שעה לא תקינה');
+  if (meta.type !== undefined && !(REVIEW_TYPES as readonly string[]).includes(meta.type)) throw new HttpError(400, 'סוג ביקורת לא תקין');
+  const to = { session: meta.time ? sessionForTime(meta.time) : r.session, type: meta.type ?? r.type };
+  const changed = to.session !== r.session || to.type !== r.type;
+  if (!changed || resync === 'skip') {
+    await updateMeta(reviewId, meta);
+    return { ok: true as const };
+  }
+
+  const all = await readCentralStudents();
+  const { picked } = selectForReview(all, to.session, to.type);
+  if (!picked.length) throw new HttpError(400, 'לא נמצאו תלמידים לפי הסינון החדש');
+
+  const diffOf = (existing: { student_id: string; last_name: string; first_name: string; status: string }[]): ResyncDiff => {
+    const want = new Set(picked.map((p) => p.id));
+    const have = new Set(existing.map((e) => e.student_id));
+    const gone = existing.filter((e) => !want.has(e.student_id));
+    const name = (e: { last_name: string; first_name: string }) => `${e.last_name} ${e.first_name}`.trim();
+    return {
+      from: { session: r.session, type: r.type }, to,
+      kept: existing.length - gone.length,
+      added: picked.filter((p) => !have.has(p.id)).map((p) => `${p.lastName} ${p.firstName}`.trim()),
+      removed: gone.map(name),
+      removedMarked: gone.filter((e) => e.status !== NO_ANSWER).map((e) => `${name(e)} (${e.status})`),
+    };
+  };
+
+  if (!resync) {
+    const existing = await sql<{ student_id: string; last_name: string; first_name: string; status: string }[]>`
+      select student_id, last_name, first_name, status from entries where review_id = ${reviewId}`;
+    return { needsResync: true as const, diff: diffOf(existing) };
+  }
+
+  const diff = await sql.begin(async (tx) => {
+    const [open] = await tx`select id from reviews where id = ${reviewId} and status = 'open' for update`;
+    if (!open) throw new HttpError(409, 'הביקורת כבר נסגרה');
+    const existing = await tx<{ student_id: string; last_name: string; first_name: string; status: string }[]>`
+      select student_id, last_name, first_name, status from entries where review_id = ${reviewId}`;
+    const d = diffOf(existing);
+    const want = picked.map((p) => p.id);
+    await tx`delete from entries where review_id = ${reviewId} and not (student_id = any(${want}))`;
+    const have = new Set(existing.map((e) => e.student_id));
+    const rows = picked.filter((p) => !have.has(p.id)).map((s) => ({
+      review_id: reviewId, student_id: s.id, last_name: s.lastName, first_name: s.firstName,
+      phone: s.phone, lang: s.lang, talmud: s.talmud, study_status: s.studyStatus,
+      status: NO_ANSWER, updated_by: user,
+    }));
+    for (let i = 0; i < rows.length; i += 500) await tx`insert into entries ${tx(rows.slice(i, i + 500))}`;
+    await tx`update reviews set session = ${to.session} where id = ${reviewId}`;
+    return d;
+  });
+  await updateMeta(reviewId, meta);
+  await audit(user, 'resync', { reviewId, from: diff.from, to: diff.to, kept: diff.kept, added: diff.added.length, removed: diff.removed.length });
+  return { ok: true as const, diff };
 }
 
 /** מחיקת ביקורת סגורה מהתוצאות (מנהלים בלבד). המספר שלה יתפנה אם היא האחרונה. */
