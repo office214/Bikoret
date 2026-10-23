@@ -302,11 +302,13 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
 .letter .done-ic svg { width: 12px; height: 12px; fill: none; stroke: var(--on-ok); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 .letter.done { color: var(--ok); }
 @keyframes done-pop { from { transform: scale(0); } to { transform: scale(1); } }
-/* בפס הצדדי: אות שהושלמה = עיגול ירוק והאות בלבן; אות שלא = נקודה אדומה קטנה */
+/* בפס הצדדי: אות שהושלמה = וי ירוק קטן; אות שלא = נקודה אדומה קטנה */
 .alpha span { position: relative; display: grid; place-items: center; width: 17px; height: auto; flex: 0 1 17px; min-height: 11px; padding: 0; border-radius: 9px; }
-.alpha span.done { background: var(--ok); color: var(--on-ok); }
 .alpha span.left::after {
   content: ''; position: absolute; top: 50%; inset-inline-start: -3px; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: var(--warn); opacity: .75;
 }
-.alpha.active span.done { color: var(--on-ok); }
+.alpha span.done::after {
+  content: '✓'; position: absolute; top: 50%; inset-inline-start: -5px; transform: translateY(-50%);
+  font-size: 9px; font-weight: 900; line-height: 1; color: var(--ok);
+}
 @media (prefers-reduced-motion: reduce) { .letter .done-ic { animation: none; } }
