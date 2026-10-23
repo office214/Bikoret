@@ -293,7 +293,7 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
   }
 
   return (
-    <div ref={listRef} className="list-wrap">
+    <div ref={listRef} className={'list-wrap' + (groups.length >= 4 ? ' has-alpha' : '')}>
       <AlphaIndex letters={groups.map((g) => g[0])} left={left} />
       {groups.map(([letter, items]) => {
         const n = left.get(letter) || 0;
