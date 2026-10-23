@@ -244,6 +244,16 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
       (filter === 'all' || e.status === filter) && (!q || `${e.last_name} ${e.first_name}`.includes(q)));
   }, [rv.entries, filter, query]);
 
+  // כמה "לא ענה" נשארו בכל אות — לפי כל התלמידים, בלי קשר לסינון/חיפוש
+  const left = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of rv.entries.values()) {
+      const l = (e.last_name || e.first_name).charAt(0);
+      m.set(l, (m.get(l) || 0) + (e.status === NO_ANSWER ? 1 : 0));
+    }
+    return m;
+  }, [rv.entries]);
+
   if (!rv.loaded) return <div className="loading">טוען את הביקורת…</div>;
   if (!rv.review) return null;
 
@@ -284,15 +294,23 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
 
   return (
     <div ref={listRef} className="list-wrap">
-      <AlphaIndex letters={groups.map((g) => g[0])} />
-      {groups.map(([letter, items]) => (
+      <AlphaIndex letters={groups.map((g) => g[0])} left={left} />
+      {groups.map(([letter, items]) => {
+        const n = left.get(letter) || 0;
+        return (
         <section key={letter} aria-label={`אות ${letter}`} data-letter={letter}>
-          <h3 className="letter" id={`L-${letter}`}>{letter}</h3>
+          <h3 className={'letter' + (n ? '' : ' done')} id={`L-${letter}`}>
+            {letter}
+            {n
+              ? <span className="left-n" aria-label={`${n} לא ענו`}>{n}</span>
+              : <span className="done-ic" role="img" aria-label="הושלם"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4 8-9" /></svg></span>}
+          </h3>
           <ul className="list">
             {items.map((e) => <StudentRow key={e.id} e={e} onSet={setStatus} onKey={onKey} />)}
           </ul>
         </section>
-      ))}
+        );
+      })}
       {noAnswer.length > 0 && filter === 'all' && !query && (
         <div className="bulk"><button className="btn ghost" onClick={bulk}>סמן את כל מי שלא ענה כנוכח ({noAnswer.length})</button></div>
       )}
@@ -323,7 +341,7 @@ const StudentRow = memoRow(function StudentRow({ e, onSet, onKey }: {
 
 /* ---------- פס אותיות בצד + בועת אות בגלילה ---------- */
 
-function AlphaIndex({ letters }: { letters: string[] }) {
+function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, number> }) {
   const bar = useRef<HTMLDivElement>(null);
   const [bubble, setBubble] = useState('');
   const [active, setActive] = useState(false);
@@ -380,7 +398,7 @@ function AlphaIndex({ letters }: { letters: string[] }) {
         onPointerDown={(e) => { setActive(true); e.currentTarget.setPointerCapture(e.pointerId); pick(e.clientY); }}
         onPointerMove={(e) => { if (active) pick(e.clientY); }}
         onPointerUp={() => setActive(false)} onPointerCancel={() => setActive(false)}>
-        {letters.map((l) => <span key={l}>{l}</span>)}
+        {letters.map((l) => <span key={l} className={left.get(l) ? 'left' : 'done'}>{l}</span>)}
       </div>
       <div className={'bubble' + (bubble ? ' show' : '')} aria-hidden="true">{bubble}</div>
     </>

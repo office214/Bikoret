@@ -17,7 +17,7 @@
   --na-bg: #fbd3d3;
   --na-line: #e05252;
   --na-text: #a61b1b;
-  --ok: #137333;
+  --ok: #137333; --on-ok: #ffffff;
   --head: #cfe8f7;
   --head-line: #a9d3ee;
   --tab-on: #cfe8f7;
@@ -32,7 +32,7 @@
     --line: #273445; --line-strong: #9cc3ff; --accent: #9cc3ff; --on-accent: #0d131b;
     --sel-bg: #1d3b5c; --sel-line: #6ea8e8; --sel-text: #d9ebff;
     --na-bg: #4a1f24; --na-line: #e06666; --na-text: #ffc9c9;
-    --warn: #ff8a8a; --warn-bg: #2a1719; --warn-strong: #e06666; --ok: #5bd18b; --head: #16324a; --head-line: #24476a; --tab-on: #1d3d5a; --focus: #7aa7ff; color-scheme: dark;
+    --warn: #ff8a8a; --warn-bg: #2a1719; --warn-strong: #e06666; --ok: #5bd18b; --on-ok: #0d131b; --head: #16324a; --head-line: #24476a; --tab-on: #1d3d5a; --focus: #7aa7ff; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
@@ -40,7 +40,7 @@
   --line: #273445; --line-strong: #9cc3ff; --accent: #9cc3ff; --on-accent: #0d131b;
   --sel-bg: #1d3b5c; --sel-line: #6ea8e8; --sel-text: #d9ebff;
   --na-bg: #4a1f24; --na-line: #e06666; --na-text: #ffc9c9;
-  --warn: #ff8a8a; --warn-bg: #2a1719; --warn-strong: #e06666; --ok: #5bd18b; --head: #16324a; --head-line: #24476a; --tab-on: #1d3d5a; --focus: #7aa7ff; color-scheme: dark;
+  --warn: #ff8a8a; --warn-bg: #2a1719; --warn-strong: #e06666; --ok: #5bd18b; --on-ok: #0d131b; --head: #16324a; --head-line: #24476a; --tab-on: #1d3d5a; --focus: #7aa7ff; color-scheme: dark;
 }
 :root[data-size="large"] { --fs: 20px; }
 :root[data-size="xlarge"] { --fs: 23px; }
@@ -288,3 +288,25 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
 /* דיאלוג סנכרון תלמידים */
 .resync { margin: 8px 0; padding-inline-start: 20px; display: grid; gap: 6px; }
 .resync details summary { cursor: pointer; color: var(--muted); font-size: .85em; }
+
+/* סימון אות שהושלמה (אין בה "לא ענה") */
+.letter { display: flex; align-items: center; gap: 6px; }
+.letter .left-n {
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; display: inline-grid; place-items: center;
+  font-size: .85em; font-weight: 800; color: var(--warn); background: var(--warn-bg);
+}
+.letter .done-ic {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--ok); display: inline-grid; place-items: center;
+  animation: done-pop .35s cubic-bezier(.3, 1.6, .5, 1);
+}
+.letter .done-ic svg { width: 12px; height: 12px; fill: none; stroke: var(--on-ok); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.letter.done { color: var(--ok); }
+@keyframes done-pop { from { transform: scale(0); } to { transform: scale(1); } }
+/* בפס הצדדי: אות שהושלמה = עיגול ירוק והאות בלבן; אות שלא = נקודה אדומה קטנה */
+.alpha span { position: relative; display: grid; place-items: center; width: 17px; height: auto; flex: 0 1 17px; min-height: 11px; padding: 0; border-radius: 9px; }
+.alpha span.done { background: var(--ok); color: var(--on-ok); }
+.alpha span.left::after {
+  content: ''; position: absolute; top: 50%; inset-inline-start: -3px; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: var(--warn); opacity: .75;
+}
+.alpha.active span.done { color: var(--on-ok); }
+@media (prefers-reduced-motion: reduce) { .letter .done-ic { animation: none; } }
