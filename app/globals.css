@@ -91,8 +91,6 @@ header.top { position: sticky; top: 0; z-index: 20; background: var(--head); bor
   flex: 1; min-width: 0; height: 46px; padding: 0 14px; border-radius: var(--r); border: 1px solid var(--line);
   background: var(--surface-2); width: 100%;
 }
-.progress { height: 3px; background: var(--line); margin-top: 6px; border-radius: 2px; overflow: hidden; }
-.progress i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 
 /* כפתורים */
 .btn {
@@ -312,3 +310,20 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
   font-size: 9px; font-weight: 900; line-height: 1; color: var(--ok);
 }
 @media (prefers-reduced-motion: reduce) { .letter .done-ic { animation: none; } }
+
+/* אחוז נוכחות — עיגול שנע מימין (0%) לשמאל (100%) */
+.att { position: relative; height: 26px; margin-top: 6px; }
+.att-track { position: absolute; inset-inline: 0; top: 50%; height: 4px; margin-top: -2px; border-radius: 2px; background: var(--line); }
+.att-track i { display: block; height: 100%; border-radius: 2px; background: #9aa4b2; transition: width .5s ease, background .4s; }
+.att-goal { position: absolute; top: -4px; inset-inline-start: 85%; width: 2px; height: 12px; border-radius: 1px; background: var(--ok); opacity: .6; }
+.att-dot {
+  position: absolute; top: 0; inset-inline-start: clamp(0px, calc(var(--p) - 15px), calc(100% - 30px));
+  width: 30px; height: 26px; border-radius: 13px; display: grid; place-items: center;
+  font-size: 10px; font-weight: 800; color: #fff; background: #7b8696; font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .2); transition: inset-inline-start .5s ease, background .4s, color .4s;
+}
+.att.pass .att-track i { background: var(--ok); }
+.att.pass .att-dot { background: var(--ok); color: var(--on-ok); animation: att-pop .5s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes att-pop { 0% { transform: scale(1); } 50% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 60; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .att-dot, .att-track i { transition: none; } .att.pass .att-dot { animation: none; } }

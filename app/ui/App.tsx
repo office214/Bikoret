@@ -202,7 +202,7 @@ function Shell({ user }: { user: User }) {
                 </button>
               ))}
             </div>
-            <div className="progress" aria-hidden="true"><i style={{ width: `${counts.all ? ((counts.all - counts[NO_ANSWER]) / counts.all) * 100 : 0}%` }} /></div>
+            <AttendanceTrack reviewId={r.id} present={counts['נוכח'] + counts['בישוב']} total={counts.all} loaded={rv.loaded} />
             <div className="row2">
               <label className="sr-only" htmlFor="search">חיפוש תלמיד</label>
               <input id="search" className="search" type="search" placeholder="חיפוש תלמיד" autoComplete="off" enterKeyHint="search"
@@ -418,6 +418,73 @@ function NoAnswerButton({ rv, count }: { rv: ReviewState; count: number }) {
       <Icon name="msg" size={18} /> ללא ענו ({count})
     </AsyncButton>
   );
+}
+
+/* ---------- אחוז נוכחות: עיגול שמתקדם מימין לשמאל, וקונפטי כשעוברים 85% ---------- */
+
+const PASS = 0.85;
+
+function AttendanceTrack({ reviewId, present, total, loaded }: { reviewId: number; present: number; total: number; loaded: boolean }) {
+  const ratio = total ? present / total : 0;
+  const pct = Math.floor(ratio * 100); // עיגול כלפי מטה — שלא יוצג 85 לפני שבאמת עברנו
+  const passed = ratio >= PASS;
+  const [burst, setBurst] = useState(0);
+  const prev = useRef<{ id: number; passed: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!loaded || !total) return;
+    const p = prev.current;
+    // קונפטי רק במעבר מתחת ל-85% למעל, בתוך אותה ביקורת — לא בטעינה ולא כשנכנסים לביקורת שכבר עברה
+    if (p && p.id === reviewId && !p.passed && passed) setBurst((b) => b + 1);
+    prev.current = { id: reviewId, passed };
+  }, [reviewId, passed, loaded, total]);
+
+  return (
+    <div className={'att' + (passed ? ' pass' : '')} role="img" aria-label={`אחוז נוכחות ${pct}%${passed ? ' — עובר' : ''}`}>
+      <div className="att-track"><i style={{ width: `${ratio * 100}%` }} /><b className="att-goal" /></div>
+      <span className="att-dot" style={{ '--p': `${ratio * 100}%` } as React.CSSProperties}>{pct}%</span>
+      {burst > 0 && <Confetti key={burst} />}
+    </div>
+  );
+}
+
+function Confetti() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setOn(false); return; }
+    const c = ref.current!;
+    const ctx = c.getContext('2d')!;
+    const dpr = window.devicePixelRatio || 1;
+    const W = window.innerWidth, H = window.innerHeight;
+    c.width = W * dpr; c.height = H * dpr; ctx.scale(dpr, dpr);
+    const colors = ['#2e7d32', '#43a047', '#fbc02d', '#1e88e5', '#e53935', '#8e24aa', '#ffffff'];
+    const parts = Array.from({ length: 160 }, () => ({
+      x: W / 2 + (Math.random() - 0.5) * W * 0.3, y: H * 0.35,
+      vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 13 - 4,
+      w: 5 + Math.random() * 5, h: 8 + Math.random() * 6,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.4,
+      color: colors[(Math.random() * colors.length) | 0],
+    }));
+    const start = performance.now();
+    const DUR = 2000;
+    let raf = 0;
+    const frame = (t: number) => {
+      const k = (t - start) / DUR;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalAlpha = k > 0.7 ? Math.max(0, (1 - k) / 0.3) : 1;
+      for (const p of parts) {
+        p.vy += 0.38; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+        ctx.fillStyle = p.color; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.r * 2)) + 2);
+        ctx.restore();
+      }
+      if (k < 1) raf = requestAnimationFrame(frame); else setOn(false);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return on ? <canvas ref={ref} className="confetti" aria-hidden="true" /> : null;
 }
 
 /* ---------- מסך הבית: בחירת סוג ביקורת ---------- */
