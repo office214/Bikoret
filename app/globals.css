@@ -366,3 +366,11 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
   .ptable td.ex { color: #000; }
   .ptable thead { display: table-header-group; } /* כותרת חוזרת בכל עמוד */
 }
+
+/* מחשב/מסך רחב: רשימת הביקורת והכלים שמעליה בעמודה צרה וממורכזת — השם קרוב לכפתורים */
+@media (min-width: 720px) {
+  .tools { max-width: 680px; }
+  .list-wrap { max-width: 660px; margin: 0 auto; }
+  main > .banner { max-width: 660px; margin-inline: auto; }
+  .alpha { inset-inline-end: max(0px, calc((100vw - 660px) / 2 - 8px)); }
+}

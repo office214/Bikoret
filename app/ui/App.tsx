@@ -222,7 +222,7 @@ function Shell({ user }: { user: User }) {
       </header>
 
       <main>
-        {rv.smsTest && <div className="banner" role="note"><Warn />מצב בדיקת SMS פעיל — הודעות נשלחות רק למספר הבדיקה, לא לתלמידים.</div>}
+        {rv.smsTest && <div className="banner no-print" role="note"><Warn />מצב בדיקת SMS פעיל — הודעות נשלחות רק למספר הבדיקה, לא לתלמידים.</div>}
         {tab === 'review' && rv.loaded && !rv.review && <Home rv={rv} />}
         {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} onToggle={toggleFilter} onClear={clearFilter} />}
         {tab === 'history' && <HistoryView admin={user.admin} />}
