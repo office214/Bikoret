@@ -133,7 +133,14 @@ export type ReviewState = ReturnType<typeof useReview>;
 function Shell({ user }: { user: User }) {
   const rv = useReview();
   const [tab, setTab] = useState<Tab>('review');
-  const [filter, setFilter] = useState<'all' | Status>('all');
+  // סינון תצוגה בלבד: אפשר לבחור כמה סטטוסים יחד; ריק = כולם
+  const [filter, setFilter] = useState<ReadonlySet<Status>>(new Set());
+  const toggleFilter = useCallback((s: Status) => setFilter((f) => {
+    const n = new Set(f);
+    if (n.has(s)) n.delete(s); else n.add(s);
+    return n;
+  }), []);
+  const clearFilter = useCallback(() => setFilter(new Set()), []);
   const [query, setQuery] = useState('');
   const { toast } = useUi();
 
@@ -196,7 +203,7 @@ function Shell({ user }: { user: User }) {
           <div className="tools">
             <div className="stats" role="group" aria-label="סינון לפי סטטוס">
               {(['all', ...STATUSES] as const).map((s) => (
-                <button key={s} className={'stat' + (s === NO_ANSWER ? ' warn' : '')} aria-pressed={filter === s} onClick={() => setFilter(s)}>
+                <button key={s} className={'stat' + (s === NO_ANSWER ? ' warn' : '')} aria-pressed={s === 'all' ? filter.size === 0 : filter.has(s)} onClick={() => (s === 'all' ? clearFilter() : toggleFilter(s))}>
                   <span className="n">{s === NO_ANSWER && counts[s] ? <small aria-hidden="true">⚠ </small> : ''}{counts[s]}</span>
                   <span className="l">{s === 'all' ? 'הכל' : s}</span>
                 </button>
@@ -217,7 +224,7 @@ function Shell({ user }: { user: User }) {
       <main>
         {rv.smsTest && <div className="banner" role="note"><Warn />מצב בדיקת SMS פעיל — הודעות נשלחות רק למספר הבדיקה, לא לתלמידים.</div>}
         {tab === 'review' && rv.loaded && !rv.review && <Home rv={rv} />}
-        {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} />}
+        {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} onToggle={toggleFilter} onClear={clearFilter} />}
         {tab === 'history' && <HistoryView admin={user.admin} />}
         {tab === 'print' && <PrintView />}
         {tab === 'admin' && <AdminView user={user} rv={rv} counts={counts} goReview={() => go('review')} />}
@@ -234,14 +241,16 @@ function Shell({ user }: { user: User }) {
 
 /* ---------- רשימת התלמידים ---------- */
 
-function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | Status; query: string }) {
+function ReviewList({ rv, filter, query, onToggle, onClear }: {
+  rv: ReviewState; filter: ReadonlySet<Status>; query: string; onToggle: (s: Status) => void; onClear: () => void;
+}) {
   const { toast, dialog } = useUi();
   const listRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(() => {
     const q = query.trim();
     return [...rv.entries.values()].filter((e) =>
-      (filter === 'all' || e.status === filter) && (!q || `${e.last_name} ${e.first_name}`.includes(q)));
+      (filter.size === 0 || filter.has(e.status)) && (!q || `${e.last_name} ${e.first_name}`.includes(q)));
   }, [rv.entries, filter, query]);
 
   // כמה "לא ענה" נשארו בכל אות — לפי כל התלמידים, בלי קשר לסינון/חיפוש
@@ -283,7 +292,21 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
     } catch (e) { toast(errMsg(e)); rv.reload(); }
   };
 
-  if (!visible.length) return <div className="empty">אין תלמידים שמתאימים לסינון.</div>;
+  // שורת כפתורי סינון מעל עמודות הסטטוס — כל כפתור מדליק/מכבה הצגה של הסטטוס שמתחתיו
+  const filterBar = (
+    <div className="stu fbar" role="group" aria-label="סינון תצוגה לפי סטטוס">
+      <div className="stu-name">
+        {filter.size ? <button className="fbar-clear" onClick={onClear}>הצג הכל</button> : <span className="fbar-l">הצג רק:</span>}
+      </div>
+      <div className="seg">
+        {STATUSES.map((s) => (
+          <button key={s} aria-pressed={filter.has(s)} className={s === NO_ANSWER ? 'na' : undefined} onClick={() => onToggle(s)}>{s}</button>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (!visible.length) return <div className="list-wrap">{filterBar}<div className="empty">אין תלמידים שמתאימים לסינון.</div></div>;
 
   const groups: [string, Entry[]][] = [];
   for (const e of visible) {
@@ -294,6 +317,7 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
 
   return (
     <div ref={listRef} className={'list-wrap' + (groups.length >= 4 ? ' has-alpha' : '')}>
+      {filterBar}
       <AlphaIndex letters={groups.map((g) => g[0])} left={left} />
       {groups.map(([letter, items]) => {
         const n = left.get(letter) || 0;
@@ -311,7 +335,7 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: 'all' | St
         </section>
         );
       })}
-      {noAnswer.length > 0 && filter === 'all' && !query && (
+      {noAnswer.length > 0 && filter.size === 0 && !query && (
         <div className="bulk"><button className="btn ghost" onClick={bulk}>סמן את כל מי שלא ענה כנוכח ({noAnswer.length})</button></div>
       )}
     </div>
