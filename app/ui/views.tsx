@@ -155,7 +155,10 @@ const REPORTS = [
 ];
 
 export function PrintView() {
-  const [kind, setKind] = useState('everything');
+  // אילו דוחות להדפיס — בחירה מרובה; ברירת מחדל: כולם
+  const [kinds, setKinds] = useState<string[]>(REPORTS.map((r) => r.kind));
+  const allOn = kinds.length === REPORTS.length;
+  const toggleKind = (k: string) => setKinds((cur) => REPORTS.map((r) => r.kind).filter((x) => (x === k ? !cur.includes(x) : cur.includes(x))));
   const [count, setCount] = useState(3);
   const [data, setData] = useState<PrintData | null>(null);
   const [err, setErr] = useState('');
@@ -166,7 +169,6 @@ export function PrintView() {
     api<PrintData>(`/api/print?kind=all&count=${count}`).then(setData).catch((e) => setErr(errMsg(e)));
   }, [count]);
 
-  const kinds = kind === 'everything' ? REPORTS.map((r) => r.kind) : [kind];
   const landscape = count > 4;
 
   return (
@@ -176,17 +178,18 @@ export function PrintView() {
         <h2>הדפסה</h2>
         <p className="sub">תלמידי הביקורת הנוכחית, לפי הביקורות האחרונות שנסגרו.{landscape ? ' יודפס לרוחב הדף.' : ''}</p>
         <div className="grid">
-          <label className="f">דוח
-            <select value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="everything">הכל (שער, כללי, חסר/לא ענה, בישוב, נרשם)</option>
-              {REPORTS.map((r) => <option key={r.kind} value={r.kind}>{r.label}</option>)}
-            </select>
-          </label>
+          <fieldset className="f kinds">
+            <legend>דוחות להדפסה</legend>
+            <label className="chk"><input type="checkbox" checked={allOn} onChange={() => setKinds(allOn ? [] : REPORTS.map((r) => r.kind))} /> הכל</label>
+            {REPORTS.map((r) => (
+              <label key={r.kind} className="chk"><input type="checkbox" checked={kinds.includes(r.kind)} onChange={() => toggleKind(r.kind)} /> {r.label}</label>
+            ))}
+          </fieldset>
           <label className="f">מספר ביקורות
             <select value={count} onChange={(e) => setCount(Number(e.target.value))}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}</select>
           </label>
         </div>
-        <div className="actions"><button className="btn solid" onClick={() => window.print()} disabled={!data?.reviews.length}>הדפס</button></div>
+        <div className="actions"><button className="btn solid" onClick={() => window.print()} disabled={!data?.reviews.length || !kinds.length}>הדפס</button></div>
       </div>
       <div id="printArea">
         {err ? <div className="empty">{err}</div> : !data ? <div className="loading">טוען…</div> : !data.reviews.length ? <div className="empty">אין ביקורות סגורות.</div> : (
@@ -220,7 +223,7 @@ function PrintReport({ kind, data }: { kind: string; data: PrintData }) {
     <section className="print-section">
       <h2>{title}</h2>
       <div className="twrap">
-        {/* טבלה צרה וממורכזת: שם אחד, עמודה צרה לכל ביקורת, פסים לסירוגין; "נוכח" באפור כדי שהחריגים יבלטו */}
+        {/* טבלה צרה וממורכזת: כותרות ושמות על אפור (שמות מודגשים), הסטטוסים על לבן */}
         <table className="ptable">
           {/* שורת "שם + תאריכים" חוזרת בראש כל עמוד; הסיכום מופיע פעם אחת מתחתיה */}
           {!cover && <thead><tr className="phead"><th className="pname">שם</th>{data.reviews.map((r) => <th key={r.id} className="pcol">{r.date_heb}</th>)}</tr></thead>}
@@ -233,7 +236,7 @@ function PrintReport({ kind, data }: { kind: string; data: PrintData }) {
             <tbody>{rows.map((row, i) => (
               <tr key={i}>
                 <td className="pname">{row.last} {row.first}</td>
-                {row.statuses.map((st, j) => <td key={j} className={'pcol' + (st === 'נוכח' ? ' ok' : st ? ' ex' : '')}>{st}</td>)}
+                {row.statuses.map((st, j) => <td key={j} className="pcol">{st}</td>)}
               </tr>
             ))}</tbody>
           )}

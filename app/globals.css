@@ -343,29 +343,31 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
 .fbar-l { color: var(--muted); font-size: .85em; font-weight: 600; }
 .fbar-clear { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 800; font-size: .9em; cursor: pointer; text-decoration: underline; }
 
-/* דוחות הדפסה — טבלה צרה ונוחה לקריאה */
+/* דוחות הדפסה — טבלה צרה ונוחה לקריאה: כותרות ושמות על אפור (שמות מודגשים), סטטוסים על לבן */
 .print-section h2 { text-align: center; }
 .print-section .twrap { border: 0; }
 .ptable { width: auto; margin: 0 auto; font-size: .95em; }
 .ptable th, .ptable td { padding: 4px 8px; border: 1px solid var(--line); }
-.ptable .pname { text-align: start; white-space: nowrap; min-width: 9em; }
+.ptable th, .ptable td.pname { background: var(--surface-2); }
+.ptable .pname { text-align: start; white-space: nowrap; min-width: 9em; font-weight: 800; }
 .ptable .pcol { text-align: center; white-space: nowrap; width: 5.2em; }
-.ptable thead .pname { font-weight: 700; }
-.ptable tr.phead th { border-bottom: 2px solid var(--text); background: var(--surface-2); }
-.ptable tbody.psum tr:last-child th { border-bottom: 2px solid var(--text); }
+.ptable td.pcol { background: var(--surface); font-weight: 400; }
 .ptable tbody.psum th { font-weight: 600; }
-.ptable tbody:not(.psum) tr:nth-child(even) td { background: var(--surface-2); }
-.ptable td.ok { color: var(--muted); }
-.ptable td.ex { font-weight: 800; }
+.ptable tr.phead th, .ptable tbody.psum tr:last-child th { border-bottom: 2px solid var(--text); }
 @media print {
   .ptable { font-size: 12.5px; }
   .ptable th, .ptable td { border: 1px solid #999; padding: 3px 8px; }
+  .ptable th, .ptable td.pname { background: #e6e6e6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ptable td.pcol { background: #fff !important; color: #000; }
   .ptable tr.phead th, .ptable tbody.psum tr:last-child th { border-bottom: 2px solid #000; }
-  .ptable tbody:not(.psum) tr:nth-child(even) td { background: #efefef !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .ptable td.ok { color: #777; }
-  .ptable td.ex { color: #000; }
   .ptable thead { display: table-header-group; } /* כותרת חוזרת בכל עמוד */
 }
+
+/* בחירת דוחות להדפסה */
+fieldset.kinds { border: 1px solid var(--line); border-radius: var(--r); padding: 8px 12px 10px; margin: 0; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; grid-column: 1 / -1; }
+fieldset.kinds legend { padding: 0 4px; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; min-height: 36px; cursor: pointer; }
+.chk input { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* מחשב/מסך רחב: רשימת הביקורת והכלים שמעליה בעמודה צרה וממורכזת — השם קרוב לכפתורים */
 @media (min-width: 720px) {
