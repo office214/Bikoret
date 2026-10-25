@@ -220,15 +220,22 @@ function PrintReport({ kind, data }: { kind: string; data: PrintData }) {
     <section className="print-section">
       <h2>{title}</h2>
       <div className="twrap">
-        <table>
-          <thead>
-            {summary.slice(cover ? 0 : 1).map(([label, get]) => (
-              <tr key={label}><th colSpan={cover ? 1 : 2}>{label}</th>{data.reviews.map((r) => <th key={r.id} className="num">{get(r)}</th>)}</tr>
+        {/* טבלה צרה וממורכזת: שם אחד, עמודה צרה לכל ביקורת, פסים לסירוגין; "נוכח" באפור כדי שהחריגים יבלטו */}
+        <table className="ptable">
+          {/* שורת "שם + תאריכים" חוזרת בראש כל עמוד; הסיכום מופיע פעם אחת מתחתיה */}
+          {!cover && <thead><tr className="phead"><th className="pname">שם</th>{data.reviews.map((r) => <th key={r.id} className="pcol">{r.date_heb}</th>)}</tr></thead>}
+          <tbody className="psum">
+            {summary.slice(cover ? 0 : 2).map(([label, get]) => (
+              <tr key={label}><th className="pname">{label}</th>{data.reviews.map((r) => <th key={r.id} className="pcol">{get(r)}</th>)}</tr>
             ))}
-            {!cover && <tr><th>שם משפחה</th><th>שם פרטי</th>{data.reviews.map((r) => <th key={r.id} className="num">{r.date_heb}</th>)}</tr>}
-          </thead>
+          </tbody>
           {!cover && (
-            <tbody>{rows.map((row, i) => <tr key={i}><td>{row.last}</td><td>{row.first}</td>{row.statuses.map((st, j) => <td key={j} className="num">{st}</td>)}</tr>)}</tbody>
+            <tbody>{rows.map((row, i) => (
+              <tr key={i}>
+                <td className="pname">{row.last} {row.first}</td>
+                {row.statuses.map((st, j) => <td key={j} className={'pcol' + (st === 'נוכח' ? ' ok' : st ? ' ex' : '')}>{st}</td>)}
+              </tr>
+            ))}</tbody>
           )}
         </table>
       </div>
