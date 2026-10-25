@@ -193,14 +193,14 @@ export function PrintView() {
       </div>
       <div id="printArea">
         {err ? <div className="empty">{err}</div> : !data ? <div className="loading">טוען…</div> : !data.reviews.length ? <div className="empty">אין ביקורות סגורות.</div> : (
-          kinds.map((k) => <PrintReport key={k} kind={k} data={data} />)
+          REPORTS.filter((r) => kinds.includes(r.kind)).map((r) => <PrintReport key={r.kind} kind={r.kind} data={data} landscape={landscape} />)
         )}
       </div>
     </>
   );
 }
 
-function PrintReport({ kind, data }: { kind: string; data: PrintData }) {
+function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData; landscape: boolean }) {
   const summary: [string, (r: PrintReview) => React.ReactNode][] = [
     ['מס׳ ביקורת', (r) => r.number], ['תאריך', (r) => r.date_heb], ['שעה', (r) => r.time], ['סוג', (r) => typeLabel(r.type)],
     ['מס׳ תלמידים', (r) => r.total], ['חסר', (r) => r.chaser], ['נרשם', (r) => r.nirsham], ['סה״כ חסרים', (r) => r.chaser + r.nirsham],
@@ -219,29 +219,37 @@ function PrintReport({ kind, data }: { kind: string; data: PrintData }) {
     missing: `חסר (${L.chaser}) לא ענה (${L.lo_ana})`, bishuv: `בישוב (${L.bishuv})`, nirsham: `נרשם (${L.nirsham})`,
   } as Record<string, string>)[kind];
   const cover = kind === 'cover';
+  // מחלקים את השמות לעמודים בעצמנו, כדי שבראש כל עמוד מודפס יופיעו הכותרת וכל שורות הסיכום
+  // (דפדפנים לא חוזרים על כותרת טבלה גבוהה). מספר שורות שמרני כדי שעמוד לא יגלוש.
+  const PER = landscape ? 14 : 27;
+  const pages: (typeof rows)[] = [];
+  if (!cover) for (let i = 0; i < rows.length; i += PER) pages.push(rows.slice(i, i + PER));
+  if (!pages.length) pages.push([]);
   return (
     <section className="print-section">
-      <h2>{title}</h2>
-      <div className="twrap">
-        {/* טבלה צרה וממורכזת: כותרות ושמות על אפור (שמות מודגשים), הסטטוסים על לבן */}
-        <table className="ptable">
-          {/* שורת "שם + תאריכים" חוזרת בראש כל עמוד; הסיכום מופיע פעם אחת מתחתיה */}
-          {!cover && <thead><tr className="phead"><th className="pname">שם</th>{data.reviews.map((r) => <th key={r.id} className="pcol">{r.date_heb}</th>)}</tr></thead>}
-          <tbody className="psum">
-            {summary.slice(cover ? 0 : 2).map(([label, get]) => (
-              <tr key={label}><th className="pname">{label}</th>{data.reviews.map((r) => <th key={r.id} className="pcol">{get(r)}</th>)}</tr>
-            ))}
-          </tbody>
-          {!cover && (
-            <tbody>{rows.map((row, i) => (
-              <tr key={i}>
-                <td className="pname">{row.last} {row.first}</td>
-                {row.statuses.map((st, j) => <td key={j} className="pcol">{st}</td>)}
-              </tr>
-            ))}</tbody>
-          )}
-        </table>
-      </div>
+      {pages.map((chunk, pi) => (
+        <div className="ppage" key={pi}>
+          <h2>{title}{pages.length > 1 && <small className="ppno"> · עמוד {pi + 1} מתוך {pages.length}</small>}</h2>
+          <div className="twrap">
+            {/* כותרות ושמות על אפור (שמות מודגשים), הסטטוסים על לבן */}
+            <table className="ptable">
+              <thead className="psum">
+                {summary.map(([label, get]) => (
+                  <tr key={label}><th className="pname">{label}</th>{data.reviews.map((r) => <th key={r.id} className="pcol">{get(r)}</th>)}</tr>
+                ))}
+              </thead>
+              {!cover && (
+                <tbody>{chunk.map((row, i) => (
+                  <tr key={i}>
+                    <td className="pname">{row.last} {row.first}</td>
+                    {row.statuses.map((st, j) => <td key={j} className="pcol">{st}</td>)}
+                  </tr>
+                ))}</tbody>
+              )}
+            </table>
+          </div>
+        </div>
+      ))}
     </section>
   );
 }
