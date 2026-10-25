@@ -369,7 +369,10 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
 }
 
 /* בחירת דוחות להדפסה */
-fieldset.kinds { border: 1px solid var(--line); border-radius: var(--r); padding: 8px 12px 10px; margin: 0; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; grid-column: 1 / -1; }
+fieldset.kinds { border: 1px solid var(--line); border-radius: var(--r); padding: 6px 12px 8px; margin: 0; flex-direction: column; gap: 0; grid-column: 1 / -1; width: min(100%, 300px); }
+/* "הכל" מופרד משאר הדוחות: מודגש, עם קו מתחתיו; הדוחות עצמם מוזחים פנימה */
+fieldset.kinds .chk-all { font-weight: 800; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 4px; }
+fieldset.kinds .chk:not(.chk-all) { padding-inline-start: 26px; }
 fieldset.kinds legend { padding: 0 4px; }
 .chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; min-height: 36px; cursor: pointer; }
 .chk input { width: 20px; height: 20px; accent-color: var(--accent); }

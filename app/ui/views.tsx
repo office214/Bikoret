@@ -180,7 +180,7 @@ export function PrintView() {
         <div className="grid">
           <fieldset className="f kinds">
             <legend>דוחות להדפסה</legend>
-            <label className="chk"><input type="checkbox" checked={allOn} onChange={() => setKinds(allOn ? [] : REPORTS.map((r) => r.kind))} /> הכל</label>
+            <label className="chk chk-all"><input type="checkbox" checked={allOn} onChange={() => setKinds(allOn ? [] : REPORTS.map((r) => r.kind))} /> הכל</label>
             {REPORTS.map((r) => (
               <label key={r.kind} className="chk"><input type="checkbox" checked={kinds.includes(r.kind)} onChange={() => toggleKind(r.kind)} /> {r.label}</label>
             ))}
