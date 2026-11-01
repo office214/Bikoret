@@ -482,7 +482,7 @@ function PresentButton({ e, onSet, onKey }: {
         <span className="lp-pop" role="menu" aria-label="סוג נוכחות">
           {PRESENT_OPTS.map((o) => (
             <button key={o} type="button" role="menuitemradio" aria-checked={e.status === o} data-opt={o}
-              className={(hot === o ? 'hot' : '') + (e.status === o ? ' cur' : '')}
+              className={hot === o ? 'hot' : undefined}
               onClick={() => { lp.current.fired = false; choose(o); }}>{o}</button>
           ))}
         </span>
