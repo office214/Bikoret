@@ -20,11 +20,11 @@ export function HistoryView({ admin }: { admin: boolean }) {
   useEffect(() => { api<HistRow[]>('/api/history').then(setRows).catch((e) => setErr(errMsg(e))); }, []);
 
   const open = async (r: HistRow) => {
-    const data = await api<{ entries: { id: string; last_name: string; first_name: string; status: string }[] }>(`/api/history/${r.id}`).catch((e) => ({ error: errMsg(e) }));
+    const data = await api<{ entries: { id: string; last_name: string; first_name: string; status: string; note?: string }[] }>(`/api/history/${r.id}`).catch((e) => ({ error: errMsg(e) }));
     const groups = new Map<string, string[]>();
     if ('entries' in data) data.entries.forEach((e) => {
       if (!groups.has(e.status)) groups.set(e.status, []);
-      groups.get(e.status)!.push(`${e.last_name} ${e.first_name}`);
+      groups.get(e.status)!.push(`${e.last_name} ${e.first_name}` + (e.note ? ` (${e.note})` : ''));
     });
     const action = await dialog({
       title: `ביקורת #${r.number} — ${r.date_heb}`, cancel: false, ok: 'סגור',
@@ -90,7 +90,7 @@ function StudentHistory() {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ id: string; last_name: string; first_name: string }[]>([]);
   const [sel, setSel] = useState<{ id: string; name: string } | null>(null);
-  const [hist, setHist] = useState<{ id: number; number: number; date_heb: string; time: string; type: string; status: string; imported: boolean }[] | null>(null);
+  const [hist, setHist] = useState<{ id: number; number: number; date_heb: string; time: string; type: string; status: string; note?: string; imported: boolean }[] | null>(null);
 
   useEffect(() => {
     if (q.trim().length < 2) { setFound([]); return; }
@@ -129,7 +129,7 @@ function StudentHistory() {
               <div className="twrap" style={{ maxHeight: 340, overflow: 'auto' }}>
                 <table>
                   <thead><tr><th className="num">#</th><th>תאריך</th><th>שעה</th><th>סוג</th><th>סטטוס</th></tr></thead>
-                  <tbody>{hist.map((h) => <tr key={h.id}><td className="num">{h.number}</td><td>{h.date_heb}</td><td>{h.time}</td><td>{typeLabel(h.type)}</td><td><Warn show={h.status === NO_ANSWER} />{h.status}</td></tr>)}</tbody>
+                  <tbody>{hist.map((h) => <tr key={h.id}><td className="num">{h.number}</td><td>{h.date_heb}</td><td>{h.time}</td><td>{typeLabel(h.type)}</td><td><Warn show={h.status === NO_ANSWER} />{h.status}{h.note ? <span className="sub"> — {h.note}</span> : null}</td></tr>)}</tbody>
                 </table>
               </div>
               {hist.some((h) => h.imported) && <p className="sub" style={{ marginTop: 8 }}>בביקורות שיובאו מהגיליון הישן מופיעות רק היעדרויות.</p>}
@@ -145,7 +145,7 @@ function StudentHistory() {
 
 type PrintReview = { id: number; number: number; date_heb: string; time: string; type: string; total: number; chaser: number; nirsham: number; bishuv: number; lo_ana: number; pct: number | null; passed: boolean | null };
 
-type PrintData = { reviews: PrintReview[]; rows: { last: string; first: string; statuses: string[] }[] };
+type PrintData = { reviews: PrintReview[]; rows: { last: string; first: string; statuses: string[]; notes?: string[] }[] };
 const REPORTS = [
   { kind: 'cover', label: 'שער — סיכום' },
   { kind: 'all', label: 'כללי' },
@@ -223,7 +223,17 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
   // (דפדפנים לא חוזרים על כותרת טבלה גבוהה). מספר שורות שמרני כדי שעמוד לא יגלוש.
   const PER = landscape ? 14 : 27;
   const pages: (typeof rows)[] = [];
-  if (!cover) for (let i = 0; i < rows.length; i += PER) pages.push(rows.slice(i, i + PER));
+  if (!cover) {
+    // שורה עם הערה גבוהה יותר: כל ~11 תווים של הערה הם עוד שורת טקסט בתא (~חצי שורה בטבלה) — כדי שעמוד לא יגלוש
+    let cur: typeof rows = [], used = 0;
+    for (const row of rows) {
+      const longest = Math.max(0, ...(row.notes || []).map((n) => n.length));
+      const w = longest ? 1.2 + Math.ceil(longest / 11) * 0.5 : 1;
+      if (used + w > PER && cur.length) { pages.push(cur); cur = []; used = 0; }
+      cur.push(row); used += w;
+    }
+    if (cur.length) pages.push(cur);
+  }
   if (!pages.length) pages.push([]);
   return (
     <section className="print-section">
@@ -242,7 +252,13 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
                 <tbody>{chunk.map((row, i) => (
                   <tr key={i}>
                     <td className="pname">{row.last} {row.first}</td>
-                    {row.statuses.map((st, j) => <td key={j} className="pcol">{st}</td>)}
+                    {row.statuses.map((st, j) => {
+                      const note = row.notes?.[j];
+                      // הערה של "נרשם" — מתחת לסטטוס, על רקע צהוב בהיר כדי שתבלוט לראש הישיבה
+                      return note
+                        ? <td key={j} className="pcol has-note">{st}<span className="pnote">{note}</span></td>
+                        : <td key={j} className="pcol">{st}</td>;
+                    })}
                   </tr>
                 ))}</tbody>
               )}

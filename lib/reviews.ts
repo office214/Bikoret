@@ -25,8 +25,8 @@ export async function currentReview(since?: string) {
   if (!review) return { review: null, entries: [], full: true, now: new Date().toISOString(), smsTest, session: autoSession() };
   const full = !since || isNaN(Date.parse(since));
   const entries = full
-    ? await sql`select student_id as id, last_name, first_name, status, updated_at from entries where review_id = ${review.id} order by last_name, first_name`
-    : await sql`select student_id as id, last_name, first_name, status, updated_at from entries where review_id = ${review.id} and updated_at > ${since}`;
+    ? await sql`select student_id as id, last_name, first_name, status, note, updated_at from entries where review_id = ${review.id} order by last_name, first_name`
+    : await sql`select student_id as id, last_name, first_name, status, note, updated_at from entries where review_id = ${review.id} and updated_at > ${since}`;
   const [{ now }] = await sql`select now() as now`;
   const groupText = smsText('start', 'HE', review.type, review.time);
   return { review, entries, full, now, smsTest, session: autoSession(), groupText };
@@ -70,7 +70,8 @@ export async function markStatus(reviewId: number, studentId: string, status: st
   if (!isStatus(status)) throw new HttpError(400, 'סטטוס לא תקין');
   const sql = await db();
   const rows = await sql`
-    update entries e set status = ${status}, updated_at = clock_timestamp(), updated_by = ${user}
+    update entries e set status = ${status}, updated_at = clock_timestamp(), updated_by = ${user},
+      note = case when ${status} = 'נרשם' then e.note else '' end -- ההערה שייכת ל"נרשם" בלבד
     from reviews r
     where e.review_id = ${reviewId} and e.student_id = ${normId(studentId)} and r.id = e.review_id and r.status = 'open'
     returning e.updated_at`;
@@ -78,12 +79,26 @@ export async function markStatus(reviewId: number, studentId: string, status: st
   return { updated_at: rows[0].updated_at };
 }
 
+/** "נרשם" עם הערה קצרה (למה לא נכח). הערה ריקה מוחקת אותה. */
+export async function markNote(reviewId: number, studentId: string, note: string, user: string) {
+  const clean = normText(note).slice(0, 120);
+  const sql = await db();
+  const rows = await sql`
+    update entries e set status = 'נרשם', note = ${clean}, updated_at = clock_timestamp(), updated_by = ${user}
+    from reviews r
+    where e.review_id = ${reviewId} and e.student_id = ${normId(studentId)} and r.id = e.review_id and r.status = 'open'
+    returning e.updated_at`;
+  if (!rows.length) throw new HttpError(409, 'הביקורת נסגרה או שהתלמיד לא נמצא — רענן את המסך');
+  return { updated_at: rows[0].updated_at, note: clean };
+}
+
 export async function markMany(reviewId: number, ids: string[], status: string, user: string) {
   if (!isStatus(status)) throw new HttpError(400, 'סטטוס לא תקין');
   const sql = await db();
   const clean = ids.map(normId).filter(Boolean);
   const rows = await sql`
-    update entries e set status = ${status}, updated_at = clock_timestamp(), updated_by = ${user}
+    update entries e set status = ${status}, updated_at = clock_timestamp(), updated_by = ${user},
+      note = case when ${status} = 'נרשם' then e.note else '' end
     from reviews r
     where e.review_id = ${reviewId} and e.student_id = any(${clean}) and r.id = e.review_id and r.status = 'open'
     returning e.student_id`;
@@ -324,7 +339,7 @@ export async function reviewDetail(reviewId: number) {
   const [review] = await sql`select id, number, date_heb, time, type, pct::float as pct, passed, imported from reviews where id = ${reviewId}`;
   if (!review) throw new HttpError(404, 'לא נמצא');
   const entries = await sql`
-    select student_id as id, last_name, first_name, status from entries
+    select student_id as id, last_name, first_name, status, note from entries
     where review_id = ${reviewId} and status <> 'נוכח' order by last_name, first_name`;
   return { review, entries };
 }
@@ -343,7 +358,7 @@ export async function searchStudents(q: string) {
 export async function studentHistory(studentId: string) {
   const sql = await db();
   return sql`
-    select r.id, r.number, r.date_heb, r.time, r.type, r.imported, e.status, e.last_name, e.first_name
+    select r.id, r.number, r.date_heb, r.time, r.type, r.imported, e.status, e.note, e.last_name, e.first_name
     from entries e join reviews r on r.id = e.review_id
     where e.student_id = ${normId(studentId)} and r.status = 'closed'
     order by r.number desc`;
@@ -362,13 +377,14 @@ export async function printData(kind: string, count: number) {
   const baseId = open ? open.id : reviews[0].id;
   const ids = reviews.map((r) => r.id);
   const people = await sql`select student_id, last_name, first_name from entries where review_id = ${baseId} order by last_name, first_name`;
-  const marks = await sql`select review_id, student_id, status from entries where review_id = any(${ids}) and student_id = any(${people.map((p) => p.student_id)})`;
-  const map = new Map<string, string>();
-  marks.forEach((m) => map.set(`${m.review_id}:${m.student_id}`, m.status === 'נוכח' ? '' : m.status));
+  const marks = await sql`select review_id, student_id, status, note from entries where review_id = any(${ids}) and student_id = any(${people.map((p) => p.student_id)})`;
+  const map = new Map<string, { s: string; n: string }>();
+  marks.forEach((m) => map.set(`${m.review_id}:${m.student_id}`, { s: m.status === 'נוכח' ? '' : m.status, n: m.note || '' }));
 
   const rows = people.map((p) => ({
     last: p.last_name, first: p.first_name,
-    statuses: reviews.map((r) => map.get(`${r.id}:${p.student_id}`) || ''),
+    statuses: reviews.map((r) => map.get(`${r.id}:${p.student_id}`)?.s || ''),
+    notes: reviews.map((r) => map.get(`${r.id}:${p.student_id}`)?.n || ''),
   })).filter((row) => {
     const s = row.statuses[0];
     if (kind === 'missing') return s === 'חסר' || s === 'לא ענה';
