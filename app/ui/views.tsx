@@ -224,15 +224,7 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
   const PER = landscape ? 14 : 27;
   const pages: (typeof rows)[] = [];
   if (!cover) {
-    // שורה עם הערה גבוהה יותר: כל ~11 תווים של הערה הם עוד שורת טקסט בתא (~חצי שורה בטבלה) — כדי שעמוד לא יגלוש
-    let cur: typeof rows = [], used = 0;
-    for (const row of rows) {
-      const longest = Math.max(0, ...(row.notes || []).map((n) => n.length));
-      const w = longest ? 1.2 + Math.ceil(longest / 11) * 0.5 : 1;
-      if (used + w > PER && cur.length) { pages.push(cur); cur = []; used = 0; }
-      cur.push(row); used += w;
-    }
-    if (cur.length) pages.push(cur);
+    for (let i = 0; i < rows.length; i += PER) pages.push(rows.slice(i, i + PER));
   }
   if (!pages.length) pages.push([]);
   return (
@@ -240,6 +232,7 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
       {pages.map((chunk, pi) => (
         <div className="ppage" key={pi}>
           <h2>{title}{pages.length > 1 && <small className="ppno"> · עמוד {pi + 1} מתוך {pages.length}</small>}</h2>
+          {!cover && data.rows.some((r) => r.notes?.some(Boolean)) && <p className="plegend"><span className="pswatch" /> נרשם עם הערה (ההערה כתובה בתא)</p>}
           <div className="twrap">
             {/* כותרות ושמות על אפור (שמות מודגשים), הסטטוסים על לבן */}
             <table className="ptable">
@@ -254,9 +247,10 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
                     <td className="pname">{row.last} {row.first}</td>
                     {row.statuses.map((st, j) => {
                       const note = row.notes?.[j];
-                      // הערה של "נרשם" — מתחת לסטטוס, על רקע צהוב בהיר כדי שתבלוט לראש הישיבה
+                      // "נרשם" עם הערה: רקע צהוב, ובמקום המילה — ההערה עצמה, בגופן שקטן ככל שהיא ארוכה,
+                      // כך שהשורה נשארת בגובה רגיל
                       return note
-                        ? <td key={j} className="pcol has-note">{st}<span className="pnote">{note}</span></td>
+                        ? <td key={j} className="pcol has-note" title={note}><span className={'pnote ' + (note.length <= 16 ? 'n1' : note.length <= 40 ? 'n2' : 'n3')}>{note}</span></td>
                         : <td key={j} className="pcol">{st}</td>;
                     })}
                   </tr>

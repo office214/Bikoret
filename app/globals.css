@@ -438,9 +438,23 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .stu-note { background: #3a3110; color: #f3d77a; } }
 .stu-name:has(.stu-note) { -webkit-line-clamp: unset; display: block; }
 .note-input { font-size: 16px; } /* 16px — בלי זום אוטומטי באייפון */
-.ptable td.has-note { background: #fff6cc; }
-.ptable .pnote { display: block; font-size: .78em; line-height: 1.2; white-space: normal; max-width: 9em; margin: 1px auto 0; color: #5c4700; }
-@media print { .ptable td.pcol.has-note { background: #fff3b8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+.ptable td.has-note { background: #fff6cc; padding-top: 1px; padding-bottom: 1px; }
+/* ההערה בתוך התא בלי להגביה את השורה: גופן קטן יותר ככל שההערה ארוכה, עד 3 שורות */
+.ptable .pnote {
+  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; width: 100%; margin: 0 auto;
+  color: #4a3a00; font-weight: 600; word-break: break-word;
+}
+.ptable .pnote.n1 { font-size: .76em; line-height: 1.1; -webkit-line-clamp: 1; }
+.ptable .pnote.n2 { font-size: .62em; line-height: 1.12; -webkit-line-clamp: 2; }
+.ptable .pnote.n3 { font-size: .5em; line-height: 1.08; -webkit-line-clamp: 3; }
+.plegend { text-align: center; margin: -4px 0 6px; font-size: .8em; color: var(--muted); }
+.pswatch { display: inline-block; width: 1.1em; height: .8em; vertical-align: -1px; background: #fff3b8; border: 1px solid #c9b25a; }
+@media print {
+  .ptable .pcol { width: 7.6em; } /* עמודות קצת רחבות יותר בהדפסה — מקום להערות בלי להגביה שורות */
+  .ptable td.pcol.has-note { background: #fff3b8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pswatch { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .plegend { color: #444; }
+}
 /* הכפתור האחרון בשורה (נרשם): הבועה נצמדת לקצה שלו במקום להיות ממורכזת — לא גולשת מחוץ למסך */
 .lp-pop.at-end { inset-inline-start: auto; inset-inline-end: -7px; transform: none; animation-name: lp-in-end; }
 @keyframes lp-in-end { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
