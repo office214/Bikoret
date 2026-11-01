@@ -230,12 +230,27 @@ function Shell({ user }: { user: User }) {
             </div>
           </div>
         )}
+        {tab === 'review' && r && (
+          // שורת סינון מעל עמודות הסטטוס — חלק מהכותרת הקבועה, כך שהיא לא זזה בגלילה
+          <div className="fbar-host">
+            <div className="stu fbar" role="group" aria-label="סינון תצוגה לפי סטטוס">
+              <div className="stu-name">
+                {filter.size ? <button className="fbar-clear" onClick={clearFilter}>הצג הכל</button> : <span className="fbar-l">הצג רק:</span>}
+              </div>
+              <div className="seg">
+                {STATUSES.map((s) => (
+                  <button key={s} aria-pressed={filter.has(s)} className={s === NO_ANSWER ? 'na' : undefined} onClick={() => toggleFilter(s)}>{s}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <main>
         {rv.smsTest && <div className="banner no-print" role="note"><Warn />מצב בדיקת SMS פעיל — הודעות נשלחות רק למספר הבדיקה, לא לתלמידים.</div>}
         {tab === 'review' && rv.loaded && !rv.review && <Home rv={rv} />}
-        {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} onToggle={toggleFilter} onClear={clearFilter} />}
+        {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} />}
         {tab === 'history' && <HistoryView admin={user.admin} />}
         {tab === 'print' && <PrintView />}
         {tab === 'admin' && <AdminView user={user} rv={rv} counts={counts} goReview={() => go('review')} />}
@@ -252,9 +267,7 @@ function Shell({ user }: { user: User }) {
 
 /* ---------- רשימת התלמידים ---------- */
 
-function ReviewList({ rv, filter, query, onToggle, onClear }: {
-  rv: ReviewState; filter: ReadonlySet<Status>; query: string; onToggle: (s: Status) => void; onClear: () => void;
-}) {
+function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: ReadonlySet<Status>; query: string }) {
   const { toast, dialog } = useUi();
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -334,21 +347,7 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
     } catch (e) { toast(errMsg(e)); rv.reload(); }
   };
 
-  // שורת כפתורי סינון מעל עמודות הסטטוס — כל כפתור מדליק/מכבה הצגה של הסטטוס שמתחתיו
-  const filterBar = (
-    <div className="stu fbar" role="group" aria-label="סינון תצוגה לפי סטטוס">
-      <div className="stu-name">
-        {filter.size ? <button className="fbar-clear" onClick={onClear}>הצג הכל</button> : <span className="fbar-l">הצג רק:</span>}
-      </div>
-      <div className="seg">
-        {STATUSES.map((s) => (
-          <button key={s} aria-pressed={filter.has(s)} className={s === NO_ANSWER ? 'na' : undefined} onClick={() => onToggle(s)}>{s}</button>
-        ))}
-      </div>
-    </div>
-  );
-
-  if (!visible.length) return <div className="list-wrap">{filterBar}<div className="empty">אין תלמידים שמתאימים לסינון.</div></div>;
+  if (!visible.length) return <div className="empty">אין תלמידים שמתאימים לסינון.</div>;
 
   const groups: [string, Entry[]][] = [];
   for (const e of visible) {
@@ -359,7 +358,6 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
 
   return (
     <div ref={listRef} className={'list-wrap' + (groups.length >= 4 ? ' has-alpha' : '')}>
-      {filterBar}
       <AlphaIndex letters={groups.map((g) => g[0])} left={left} />
       {groups.map(([letter, items]) => {
         const n = left.get(letter) || 0;
@@ -409,8 +407,8 @@ const StudentRow = memoRow(function StudentRow({ e, leaving, onSet, onKey }: {
 });
 
 /**
- * כפתור "נוכח": לחיצה רגילה = נוכח. לחיצה ארוכה (או קליק ימני) פותחת בועה עם "נוכח" / "מילואים":
- * גוררים אליה בלי להרים את האצבע ומשחררים — כמו במקלדת של הטלפון — או מרימים ומקישים עליה.
+ * כפתור "נוכח": לחיצה רגילה = נוכח. לחיצה ארוכה (או קליק ימני) פותחת בועה: "נוכח" נשאר בדיוק מתחת לאצבע
+ * ו"מילואים" מתחתיו — גוררים למטה ומשחררים, כמו במקלדת של הטלפון, או מרימים ומקישים.
  */
 const LONG_MS = 420;
 const PRESENT_OPTS: Status[] = ['נוכח', MILUIM];
@@ -453,7 +451,7 @@ function PresentButton({ e, onSet, onKey }: {
           ev.currentTarget.setPointerCapture?.(ev.pointerId); // הגרירה ממשיכה להגיע לכפתור גם מעל הבועה
           lp.current = { x: ev.clientX, y: ev.clientY, fired: false };
           clearTimeout(lp.current.t);
-          lp.current.t = setTimeout(() => { lp.current.fired = true; setOpen(true); navigator.vibrate?.(12); }, LONG_MS);
+          lp.current.t = setTimeout(() => { lp.current.fired = true; setOpen(true); setHot('נוכח'); navigator.vibrate?.(12); }, LONG_MS);
         }}
         onPointerMove={(ev) => {
           const c = lp.current;
@@ -495,10 +493,8 @@ function PresentButton({ e, onSet, onKey }: {
 
 /* ---------- פס אותיות בצד + בועת אות בגלילה ---------- */
 
-/** גובה מה שנעוץ למעלה: הכותרת + שורת הסינון */
-const topOffset = () =>
-  (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0) +
-  (document.querySelector<HTMLElement>('.stu.fbar')?.offsetHeight || 0);
+/** גובה הכותרת הנעוצה למעלה (כולל שורת הסינון) */
+const topOffset = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
 
 function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, number> }) {
   const bar = useRef<HTMLDivElement>(null);

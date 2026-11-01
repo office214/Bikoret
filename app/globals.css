@@ -144,7 +144,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 12px 16px; }
 @media (min-width: 640px) { .stu { --sq: 52px; } .seg { gap: 6px; } .seg button { font-size: 13px; } }
 .list-wrap { margin: 0 -16px; }
 /* מסלול נפרד לפס האותיות — השורות (כולל הרקע של "לא ענה") נגמרות לפניו */
-.list-wrap.has-alpha .list, .list-wrap.has-alpha .fbar { margin-inline-end: 30px; }
+.list-wrap.has-alpha .list { margin-inline-end: 30px; }
 .list-wrap.has-alpha .stu { padding-inline-end: 8px; }
 .list-wrap.has-alpha .stu + .stu::before { inset-inline-end: 8px; }
 .list-wrap.has-alpha .stu.noans::before, .list-wrap.has-alpha .stu.noans + .stu::before { inset-inline-end: 0; }
@@ -398,10 +398,11 @@ fieldset.kinds legend { padding: 0 4px; }
 .lp-wrap { position: relative; display: inline-flex; }
 .seg button, .lp-pop button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .seg button.mil { font-size: 9.5px; letter-spacing: -.02em; }
+/* "נוכח" יושב בדיוק על הכפתור (מתחת לאצבע), "מילואים" מתחתיו */
 .lp-pop {
-  position: absolute; bottom: calc(100% + 8px); inset-inline-start: 50%; transform: translateX(50%); z-index: 40;
-  display: flex; gap: 6px; padding: 6px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
-  box-shadow: 0 6px 20px rgb(0 0 0 / .22); animation: lp-in .12s ease-out;
+  position: absolute; top: calc((var(--sq, 42px) - 44px) / 2 - 7px); inset-inline-start: 50%; transform: translateX(50%); z-index: 40;
+  display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 6px 20px rgb(0 0 0 / .22); animation: lp-in .12s ease-out; transform-origin: 50% 28px;
 }
 /* (בתוך .seg — לכן הבוררים חזקים יותר מעיצוב כפתורי הסטטוס) */
 .seg .lp-pop button {
@@ -413,11 +414,15 @@ fieldset.kinds legend { padding: 0 4px; }
 .seg .lp-pop button.hot, .seg .lp-pop button:hover {
   background: var(--accent) !important; color: var(--on-accent) !important; border-color: var(--accent);
 }
-@keyframes lp-in { from { opacity: 0; transform: translateX(50%) translateY(6px) scale(.92); } to { opacity: 1; transform: translateX(50%); } }
+@keyframes lp-in { from { opacity: 0; transform: translateX(50%) scale(.9); } to { opacity: 1; transform: translateX(50%); } }
 
-/* שורת הסינון נשארת למעלה בזמן גלילה — דקה, וכותרות האותיות נעצרות מתחתיה */
-.list-wrap { --fbar: 34px; }
-.stu.fbar { position: sticky; top: var(--hdr, 0px); z-index: 7; height: var(--fbar); padding-top: 0; padding-bottom: 0; border-bottom: 1px solid var(--line); }
+/* שורת הסינון — בתוך הכותרת הקבועה (לא זזה), דקה, ומיושרת לעמודות הסטטוס שברשימה */
+.fbar-host { border-top: 1px solid var(--head-line); background: var(--bg); }
+body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; padding-inline-end: 8px; }
+.stu.fbar { height: 34px; padding-top: 0; padding-bottom: 0; background: transparent; }
 .fbar .seg button { height: 24px; border-radius: 12px; }
 .fbar .stu-name { font-size: .8em; }
-.list-wrap .letter { top: calc(var(--hdr, 0px) + var(--fbar)); scroll-margin-top: calc(var(--hdr, 0px) + var(--fbar)); }
+@media (min-width: 720px) {
+  .fbar-host .fbar { max-width: 660px; margin-inline: auto; }
+  body:has(.list-wrap.has-alpha) .fbar-host .fbar { max-width: 630px; margin-inline: auto; transform: translateX(15px); }
+}
