@@ -37,7 +37,9 @@ export const config = {
 };
 
 export const STATUSES = ['נוכח', 'בישוב', 'חסר', 'לא ענה', 'נרשם'] as const;
-export type Status = (typeof STATUSES)[number];
+/** מילואים — נחשב נוכח לכל דבר, רק מסומן בנפרד */
+export const MILUIM = 'מילואים' as const;
+export type Status = (typeof STATUSES)[number] | typeof MILUIM;
 export const NO_ANSWER: Status = 'לא ענה';
 export const REVIEW_TYPES = ['פנימית', 'חיצונית 00', 'חיצונית 02'] as const;
 export const SESSIONS = ['בוקר', 'צהריים'] as const;

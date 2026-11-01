@@ -338,6 +338,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
           <p>{[meta.date_heb, meta.time, meta.type].join(' · ')}</p>
           <div className="twrap"><table><tbody>
             {STATUSES.map((s) => <tr key={s}><td><Warn show={s === NO_ANSWER} />{s}</td><td className="num">{counts[s]}</td></tr>)}
+            {counts['מילואים'] > 0 && <tr><td className="sub">מתוכם במילואים (נחשבים נוכחים)</td><td className="num">{counts['מילואים']}</td></tr>}
             <tr><th>אחוז נוכחות</th><th className="num">{pct}%</th></tr>
           </tbody></table></div>
           {counts[NO_ANSWER] > 0 && <p className="warn-ic">⚠ {counts[NO_ANSWER]} תלמידים עדיין &quot;לא ענה&quot;.</p>}

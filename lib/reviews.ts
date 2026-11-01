@@ -1,4 +1,4 @@
-import { config, NO_ANSWER, REVIEW_TYPES, SESSIONS, STATUSES, type Status } from './config';
+import { config, MILUIM, NO_ANSWER, REVIEW_TYPES, SESSIONS, STATUSES, type Status } from './config';
 import { audit, db } from './db';
 import { autoSession, hebrewDateShort, sessionForTime, timeHHmm } from './hebdate';
 import { getSetting } from './secure';
@@ -12,7 +12,7 @@ export type ReviewMeta = {
   date_heb: string; time: string; created_at: string; created_by: string | null;
 };
 
-const isStatus = (s: string): s is Status => (STATUSES as readonly string[]).includes(s);
+const isStatus = (s: string): s is Status => (STATUSES as readonly string[]).includes(s) || s === MILUIM;
 
 /* ---------- ביקורת פתוחה ---------- */
 
@@ -205,7 +205,7 @@ export async function closeReview(reviewId: number, meta: { date_heb?: string; t
     if (!r) throw new HttpError(409, 'הביקורת כבר נסגרה');
     const [c] = await tx`
       select count(*)::int as total,
-        count(*) filter (where status = 'נוכח')::int as present,
+        count(*) filter (where status in ('נוכח', 'מילואים'))::int as present, -- מילואים נחשב נוכח
         count(*) filter (where status = 'בישוב')::int as bishuv,
         count(*) filter (where status = 'חסר')::int as chaser,
         count(*) filter (where status = 'לא ענה')::int as lo_ana,

@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, AsyncButton, errMsg, Icon, NO_ANSWER, STATUSES, UiProvider, useUi, Warn, type Status } from './kit';
+import { api, AsyncButton, columnOf, errMsg, Icon, MILUIM, NO_ANSWER, STATUSES, UiProvider, useUi, Warn, type Status } from './kit';
 import { AdminView, HistoryView, PrintView } from './views';
 import { useSms } from './useSms';
 import { typeLabel } from './kit';
@@ -165,7 +165,8 @@ function Shell({ user }: { user: User }) {
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: list.length };
     STATUSES.forEach((s) => (c[s] = 0));
-    list.forEach((e) => c[e.status]++);
+    c[MILUIM] = 0;
+    list.forEach((e) => { c[columnOf(e.status)]++; if (e.status === MILUIM) c[MILUIM]++; }); // מילואים נספר גם בתוך "נוכח"
     return c;
   }, [list]);
 
@@ -276,7 +277,7 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
   const visible = useMemo(() => {
     const q = query.trim();
     return [...rv.entries.values()].filter((e) =>
-      (filter.size === 0 || filter.has(e.status) || linger.has(e.id)) && (!q || `${e.last_name} ${e.first_name}`.includes(q)));
+      (filter.size === 0 || filter.has(columnOf(e.status)) || linger.has(e.id)) && (!q || `${e.last_name} ${e.first_name}`.includes(q)));
   }, [rv.entries, filter, query, linger]);
 
   // כמה "לא ענה" נשארו בכל אות — לפי כל התלמידים, בלי קשר לסינון/חיפוש
@@ -301,7 +302,7 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
     if (e.status === s) return;
     rv.mark(e.id, s);
     stopLinger(e.id);
-    if (filter.size && !filter.has(s)) {
+    if (filter.size && !filter.has(columnOf(s))) {
       setLingerPhase(e.id, 'stay');
       lingerTimers.current.set(e.id, [
         setTimeout(() => setLingerPhase(e.id, 'leave'), 380),
@@ -317,7 +318,7 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
     const step = ({ ArrowLeft: 1, ArrowRight: -1, ArrowDown: 1, ArrowUp: -1 } as Record<string, number>)[ev.key];
     if (!step) return;
     ev.preventDefault();
-    const next = STATUSES[(STATUSES.indexOf(e.status) + step + 5) % 5];
+    const next = STATUSES[(STATUSES.indexOf(columnOf(e.status)) + step + 5) % 5];
     setStatusLatest.current(e, next);
     requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>(`[data-id="${e.id}"][aria-checked="true"]`)?.focus());
   };
@@ -388,23 +389,116 @@ const StudentRow = memoRow(function StudentRow({ e, leaving, onSet, onKey }: {
 }) {
   const na = e.status === NO_ANSWER;
   const labelId = `lbl-${e.id}`;
+  const col = columnOf(e.status);
   return (
     <li className={'stu' + (na ? ' noans' : '') + (leaving ? ' leaving' : '')}>
       <div className="stu-name" id={labelId}>
         {e.last_name} {e.first_name}
       </div>
       <div className="seg" role="radiogroup" aria-labelledby={labelId}>
-        {STATUSES.map((s) => (
-          <button key={s} role="radio" aria-checked={e.status === s} tabIndex={e.status === s ? 0 : -1} data-id={e.id}
-            className={s === NO_ANSWER ? 'na' : undefined}
-            onClick={() => onSet(e, s)} onKeyDown={(ev) => onKey(ev, e)}>{s}</button>
-        ))}
+        {STATUSES.map((s) => s === 'נוכח'
+          ? <PresentButton key={s} e={e} onSet={onSet} onKey={onKey} />
+          : (
+            <button key={s} role="radio" aria-checked={col === s} tabIndex={col === s ? 0 : -1} data-id={e.id}
+              className={s === NO_ANSWER ? 'na' : undefined}
+              onClick={() => onSet(e, s)} onKeyDown={(ev) => onKey(ev, e)}>{s}</button>
+          ))}
       </div>
     </li>
   );
 });
 
+/**
+ * כפתור "נוכח": לחיצה רגילה = נוכח. לחיצה ארוכה (או קליק ימני) פותחת בועה עם "נוכח" / "מילואים":
+ * גוררים אליה בלי להרים את האצבע ומשחררים — כמו במקלדת של הטלפון — או מרימים ומקישים עליה.
+ */
+const LONG_MS = 420;
+const PRESENT_OPTS: Status[] = ['נוכח', MILUIM];
+
+function PresentButton({ e, onSet, onKey }: {
+  e: Entry; onSet: (e: Entry, s: Status) => void; onKey: (ev: React.KeyboardEvent, e: Entry) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [hot, setHot] = useState<Status | null>(null);
+  const wrap = useRef<HTMLSpanElement>(null);
+  const lp = useRef<{ t?: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean }>({ x: 0, y: 0, fired: false });
+  const on = e.status === 'נוכח' || e.status === MILUIM;
+
+  const optAt = (x: number, y: number) =>
+    (document.elementFromPoint(x, y)?.closest('[data-opt]') as HTMLElement | null)?.dataset.opt as Status | undefined;
+  const choose = (s: Status) => { setOpen(false); setHot(null); if (s !== e.status) onSet(e, s); };
+
+  // כשהבועה פתוחה: גרירה לא גוללת את הדף, ונגיעה מחוץ לבועה סוגרת אותה
+  useEffect(() => {
+    if (!open) return;
+    const noScroll = (ev: TouchEvent) => { if (lp.current.fired) ev.preventDefault(); };
+    const outside = (ev: PointerEvent) => { if (!wrap.current?.contains(ev.target as Node)) { setOpen(false); setHot(null); } };
+    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { setOpen(false); setHot(null); } };
+    document.addEventListener('touchmove', noScroll, { passive: false });
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('touchmove', noScroll);
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+
+  return (
+    <span className="lp-wrap" ref={wrap}>
+      <button role="radio" aria-checked={on} tabIndex={on ? 0 : -1} data-id={e.id} aria-haspopup="menu"
+        aria-label={e.status === MILUIM ? 'מילואים (נחשב נוכח). לחיצה ארוכה לשינוי' : 'נוכח. לחיצה ארוכה למילואים'}
+        className={e.status === MILUIM ? 'mil' : undefined}
+        onPointerDown={(ev) => {
+          ev.currentTarget.setPointerCapture?.(ev.pointerId); // הגרירה ממשיכה להגיע לכפתור גם מעל הבועה
+          lp.current = { x: ev.clientX, y: ev.clientY, fired: false };
+          clearTimeout(lp.current.t);
+          lp.current.t = setTimeout(() => { lp.current.fired = true; setOpen(true); navigator.vibrate?.(12); }, LONG_MS);
+        }}
+        onPointerMove={(ev) => {
+          const c = lp.current;
+          if (!c.fired) { if (Math.hypot(ev.clientX - c.x, ev.clientY - c.y) > 10) clearTimeout(c.t); return; }
+          setHot(optAt(ev.clientX, ev.clientY) ?? null);
+        }}
+        onPointerUp={(ev) => {
+          clearTimeout(lp.current.t);
+          if (!lp.current.fired) return;
+          const o = optAt(ev.clientX, ev.clientY);
+          if (o) choose(o); // שחרור על אפשרות; אחרת הבועה נשארת פתוחה להקשה
+          setHot(null);
+        }}
+        onPointerCancel={() => clearTimeout(lp.current.t)}
+        onContextMenu={(ev) => { ev.preventDefault(); setOpen(true); }}
+        onClick={() => {
+          if (lp.current.fired) { lp.current.fired = false; return; } // הקליק שאחרי לחיצה ארוכה
+          if (open) { setOpen(false); return; }
+          onSet(e, 'נוכח');
+        }}
+        onKeyDown={(ev) => {
+          if ((ev.key === 'Enter' && ev.shiftKey) || ev.key === 'ContextMenu') { ev.preventDefault(); setOpen(true); return; }
+          onKey(ev, e);
+        }}>
+        {e.status === MILUIM ? 'מילואים' : 'נוכח'}
+      </button>
+      {open && (
+        <span className="lp-pop" role="menu" aria-label="סוג נוכחות">
+          {PRESENT_OPTS.map((o) => (
+            <button key={o} type="button" role="menuitemradio" aria-checked={e.status === o} data-opt={o}
+              className={(hot === o ? 'hot' : '') + (e.status === o ? ' cur' : '')}
+              onClick={() => { lp.current.fired = false; choose(o); }}>{o}</button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* ---------- פס אותיות בצד + בועת אות בגלילה ---------- */
+
+/** גובה מה שנעוץ למעלה: הכותרת + שורת הסינון */
+const topOffset = () =>
+  (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0) +
+  (document.querySelector<HTMLElement>('.stu.fbar')?.offsetHeight || 0);
 
 function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, number> }) {
   const bar = useRef<HTMLDivElement>(null);
@@ -429,7 +523,7 @@ function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, nu
         const fast = Math.abs(window.scrollY - lastY) > 40;
         lastY = window.scrollY;
         if (!fast && !active) return;
-        const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+        const hdr = topOffset();
         let cur = '';
         document.querySelectorAll<HTMLElement>('section[data-letter]').forEach((sec) => {
           if (sec.getBoundingClientRect().top - hdr <= 8) cur = sec.dataset.letter || '';
@@ -450,7 +544,7 @@ function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, nu
     // גוללים לתחילת הקטע ולא לכותרת: הכותרת דביקה, והמיקום שלה הוא מיקום ה"נעיצה" (סוף הקטע)
     const sec = document.querySelector<HTMLElement>(`section[data-letter="${CSS.escape(l)}"]`);
     if (sec) {
-      const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+      const hdr = topOffset();
       window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - hdr, behavior: 'instant' });
     }
     flash(l);

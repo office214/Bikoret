@@ -393,3 +393,31 @@ fieldset.kinds legend { padding: 0 4px; }
   100% { opacity: 0; transform: translateX(-24px); max-height: 0; padding-top: 0; padding-bottom: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .stu.leaving { animation-duration: .01s; } }
+
+/* לחיצה ארוכה על "נוכח" — בועת בחירה נוכח / מילואים מעל הכפתור */
+.lp-wrap { position: relative; display: inline-flex; }
+.seg button, .lp-pop button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.seg button.mil { font-size: 9.5px; letter-spacing: -.02em; }
+.lp-pop {
+  position: absolute; bottom: calc(100% + 8px); inset-inline-start: 50%; transform: translateX(50%); z-index: 40;
+  display: flex; gap: 6px; padding: 6px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 6px 20px rgb(0 0 0 / .22); animation: lp-in .12s ease-out;
+}
+/* (בתוך .seg — לכן הבוררים חזקים יותר מעיצוב כפתורי הסטטוס) */
+.seg .lp-pop button {
+  width: auto; min-width: 64px; height: 44px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; white-space: nowrap;
+}
+.seg .lp-pop button.cur { border-color: var(--sel-line); box-shadow: inset 0 0 0 1px var(--sel-line); }
+.seg .lp-pop button { background: var(--surface-2) !important; color: var(--text) !important; } /* גם בשורת "לא ענה" */
+.seg .lp-pop button.hot, .seg .lp-pop button:hover {
+  background: var(--accent) !important; color: var(--on-accent) !important; border-color: var(--accent);
+}
+@keyframes lp-in { from { opacity: 0; transform: translateX(50%) translateY(6px) scale(.92); } to { opacity: 1; transform: translateX(50%); } }
+
+/* שורת הסינון נשארת למעלה בזמן גלילה — דקה, וכותרות האותיות נעצרות מתחתיה */
+.list-wrap { --fbar: 34px; }
+.stu.fbar { position: sticky; top: var(--hdr, 0px); z-index: 7; height: var(--fbar); padding-top: 0; padding-bottom: 0; border-bottom: 1px solid var(--line); }
+.fbar .seg button { height: 24px; border-radius: 12px; }
+.fbar .stu-name { font-size: .8em; }
+.list-wrap .letter { top: calc(var(--hdr, 0px) + var(--fbar)); scroll-margin-top: calc(var(--hdr, 0px) + var(--fbar)); }
