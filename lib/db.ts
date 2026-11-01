@@ -60,7 +60,7 @@ create table if not exists entries (
   updated_by   text,
   primary key (review_id, student_id)
 );
--- הערה קצרה לתלמיד "נרשם" (למה לא נכח) — מוצגת במסך ובהדפסה
+-- הערה קצרה לתלמיד "חסר" (למה לא נכח) — מוצגת במסך ובהדפסה
 alter table entries add column if not exists note text not null default '';
 create index if not exists entries_student on entries (student_id);
 create index if not exists entries_updated on entries (review_id, updated_at);

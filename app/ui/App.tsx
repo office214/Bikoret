@@ -46,7 +46,7 @@ function useReview() {
       const next = r.full ? new Map<string, Entry>() : new Map(prev);
       for (const e of r.entries) {
         const p = pending.current.get(e.id);
-        next.set(e.id, { id: e.id, last_name: e.last_name, first_name: e.first_name, status: p ?? e.status, note: (p ?? e.status) === 'נרשם' ? e.note || '' : '' });
+        next.set(e.id, { id: e.id, last_name: e.last_name, first_name: e.first_name, status: p ?? e.status, note: (p ?? e.status) === 'חסר' ? e.note || '' : '' });
       }
       return next;
     });
@@ -87,20 +87,20 @@ function useReview() {
       const e = prev.get(id);
       if (!e) return prev;
       const next = new Map(prev);
-      next.set(id, { ...e, status, note: status === 'נרשם' ? e.note : '' });
+      next.set(id, { ...e, status, note: status === 'חסר' ? e.note : '' });
       return next;
     });
     void flush();
   }, [flush]);
 
-  /** "נרשם" עם הערה — נשמר מיד (גם הסטטוס) */
+  /** "חסר" עם הערה — נשמר מיד (גם הסטטוס) */
   const setNote = useCallback(async (id: string, note: string) => {
     if (!reviewId.current) return;
     setEntries((prev) => {
       const e = prev.get(id);
       if (!e) return prev;
       const next = new Map(prev);
-      next.set(id, { ...e, status: 'נרשם', note: note.trim() });
+      next.set(id, { ...e, status: 'חסר', note: note.trim() });
       return next;
     });
     await waitIdle();
@@ -357,11 +357,11 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: ReadonlySe
   };
   setStatusLatest.current = setStatus;
 
-  // "נרשם" עם הערה: חלון קטן עם שדה טקסט (המקלדת נפתחת), שמירה ב-Enter
+  // "חסר" עם הערה: חלון קטן עם שדה טקסט (המקלדת נפתחת), שמירה ב-Enter
   noteLatest.current = async (e: Entry) => {
-    let val = e.status === 'נרשם' ? e.note || '' : '';
+    let val = e.status === 'חסר' ? e.note || '' : '';
     const res = await dialog({
-      title: `נרשם — ${e.last_name} ${e.first_name}`, ok: 'שמור',
+      title: `חסר — ${e.last_name} ${e.first_name}`, ok: 'שמור',
       body: (
         <label className="f">סיבה בקצרה (תופיע גם בהדפסה)
           <input className="note-input" defaultValue={val} maxLength={120} enterKeyHint="done" autoComplete="off"
@@ -371,7 +371,7 @@ function ReviewList({ rv, filter, query }: { rv: ReviewState; filter: ReadonlySe
       onOk: () => val,
     });
     if (typeof res !== 'string') return;
-    if (filter.size && !filter.has('נרשם')) setStatus(e, 'נרשם'); // אנימציית יציאה מהסינון כרגיל
+    if (filter.size && !filter.has('חסר')) setStatus(e, 'חסר'); // אנימציית יציאה מהסינון כרגיל
     try { await rv.setNote(e.id, res); } catch (err) { toast(errMsg(err)); }
   };
 
@@ -437,7 +437,7 @@ const StudentRow = memoRow(function StudentRow({ e, leaving, onSet, onNote, onKe
   const na = e.status === NO_ANSWER;
   const labelId = `lbl-${e.id}`;
   const col = columnOf(e.status);
-  const note = e.status === 'נרשם' ? e.note : '';
+  const note = e.status === 'חסר' ? e.note : '';
   return (
     <li className={'stu' + (na ? ' noans' : '') + (leaving ? ' leaving' : '')}>
       <div className="stu-name" id={labelId}>
@@ -453,11 +453,11 @@ const StudentRow = memoRow(function StudentRow({ e, leaving, onSet, onNote, onKe
               opts={PRESENT_OPTS} onTap={() => onSet(e, 'נוכח')}
               onPick={(k) => { if (k !== e.status) onSet(e, k as Status); }} onKey={(ev) => onKey(ev, e)} />
           );
-          if (s === 'נרשם') return (
-            <HoldButton key={s} id={e.id} checked={col === 'נרשם'} label="נרשם"
-              aria={note ? `נרשם, עם הערה: ${note}` : 'נרשם. לחיצה ארוכה להוספת הערה'}
-              opts={NIRSHAM_OPTS} atEnd onTap={() => onSet(e, 'נרשם')}
-              onPick={(k) => (k === 'note' ? onNote(e) : e.status !== 'נרשם' && onSet(e, 'נרשם'))} onKey={(ev) => onKey(ev, e)} />
+          if (s === 'חסר') return (
+            <HoldButton key={s} id={e.id} checked={col === 'חסר'} label="חסר"
+              aria={note ? `חסר, עם הערה: ${note}` : 'חסר. לחיצה ארוכה להוספת הערה'}
+              opts={CHASER_OPTS} onTap={() => onSet(e, 'חסר')}
+              onPick={(k) => (k === 'note' ? onNote(e) : e.status !== 'חסר' && onSet(e, 'חסר'))} onKey={(ev) => onKey(ev, e)} />
           );
           return (
             <button key={s} role="radio" aria-checked={col === s} tabIndex={col === s ? 0 : -1} data-id={e.id}
@@ -473,12 +473,12 @@ const StudentRow = memoRow(function StudentRow({ e, leaving, onSet, onNote, onKe
 /**
  * כפתור סטטוס עם לחיצה ארוכה: לחיצה רגילה = הסטטוס עצמו. לחיצה ארוכה (או קליק ימני) פותחת בועה —
  * האפשרות הראשונה יושבת בדיוק מתחת לאצבע, והשנייה מתחתיה: גוררים למטה ומשחררים, כמו במקלדת של הטלפון.
- * "נוכח" ← מילואים; "נרשם" ← נרשם עם הערה.
+ * "נוכח" ← מילואים; "חסר" ← חסר עם הערה.
  */
 const LONG_MS = 420;
 type HoldOpt = { key: string; label: string };
 const PRESENT_OPTS: HoldOpt[] = [{ key: 'נוכח', label: 'נוכח' }, { key: MILUIM, label: 'מילואים' }];
-const NIRSHAM_OPTS: HoldOpt[] = [{ key: 'נרשם', label: 'נרשם' }, { key: 'note', label: 'עם הערה' }];
+const CHASER_OPTS: HoldOpt[] = [{ key: 'חסר', label: 'חסר' }, { key: 'note', label: 'עם הערה' }];
 
 function HoldButton({ id, checked, label, aria, className, opts, atEnd, onTap, onPick, onKey }: {
   id: string; checked: boolean; label: string; aria: string; className?: string; opts: HoldOpt[]; atEnd?: boolean;

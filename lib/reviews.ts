@@ -71,7 +71,7 @@ export async function markStatus(reviewId: number, studentId: string, status: st
   const sql = await db();
   const rows = await sql`
     update entries e set status = ${status}, updated_at = clock_timestamp(), updated_by = ${user},
-      note = case when ${status} = 'נרשם' then e.note else '' end -- ההערה שייכת ל"נרשם" בלבד
+      note = case when ${status} = 'חסר' then e.note else '' end -- ההערה שייכת ל"חסר" בלבד
     from reviews r
     where e.review_id = ${reviewId} and e.student_id = ${normId(studentId)} and r.id = e.review_id and r.status = 'open'
     returning e.updated_at`;
@@ -79,12 +79,12 @@ export async function markStatus(reviewId: number, studentId: string, status: st
   return { updated_at: rows[0].updated_at };
 }
 
-/** "נרשם" עם הערה קצרה (למה לא נכח). הערה ריקה מוחקת אותה. */
+/** "חסר" עם הערה קצרה (למה לא נכח). הערה ריקה מוחקת אותה. */
 export async function markNote(reviewId: number, studentId: string, note: string, user: string) {
   const clean = normText(note).slice(0, 120);
   const sql = await db();
   const rows = await sql`
-    update entries e set status = 'נרשם', note = ${clean}, updated_at = clock_timestamp(), updated_by = ${user}
+    update entries e set status = 'חסר', note = ${clean}, updated_at = clock_timestamp(), updated_by = ${user}
     from reviews r
     where e.review_id = ${reviewId} and e.student_id = ${normId(studentId)} and r.id = e.review_id and r.status = 'open'
     returning e.updated_at`;
@@ -98,7 +98,7 @@ export async function markMany(reviewId: number, ids: string[], status: string, 
   const clean = ids.map(normId).filter(Boolean);
   const rows = await sql`
     update entries e set status = ${status}, updated_at = clock_timestamp(), updated_by = ${user},
-      note = case when ${status} = 'נרשם' then e.note else '' end
+      note = case when ${status} = 'חסר' then e.note else '' end
     from reviews r
     where e.review_id = ${reviewId} and e.student_id = any(${clean}) and r.id = e.review_id and r.status = 'open'
     returning e.student_id`;

@@ -232,7 +232,7 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
       {pages.map((chunk, pi) => (
         <div className="ppage" key={pi}>
           <h2>{title}{pages.length > 1 && <small className="ppno"> · עמוד {pi + 1} מתוך {pages.length}</small>}</h2>
-          {!cover && data.rows.some((r) => r.notes?.some(Boolean)) && <p className="plegend"><span className="pswatch" /> נרשם עם הערה (ההערה כתובה בתא)</p>}
+          {!cover && data.rows.some((r) => r.notes?.some(Boolean)) && <p className="plegend"><span className="pswatch" /> חסר עם הערה (ההערה כתובה בתא)</p>}
           <div className="twrap">
             {/* כותרות ושמות על אפור (שמות מודגשים), הסטטוסים על לבן */}
             <table className="ptable">
@@ -247,7 +247,7 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
                     <td className="pname">{row.last} {row.first}</td>
                     {row.statuses.map((st, j) => {
                       const note = row.notes?.[j];
-                      // "נרשם" עם הערה: רקע צהוב, ובמקום המילה — ההערה עצמה, בגופן שקטן ככל שהיא ארוכה,
+                      // "חסר" עם הערה: רקע צהוב, ובמקום המילה — ההערה עצמה, בגופן שקטן ככל שהיא ארוכה,
                       // כך שהשורה נשארת בגובה רגיל
                       return note
                         ? <td key={j} className="pcol has-note" title={note}><span className={'pnote ' + (note.length <= 16 ? 'n1' : note.length <= 40 ? 'n2' : 'n3')}>{note}</span></td>

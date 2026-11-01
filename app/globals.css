@@ -455,6 +455,6 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
   .pswatch { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .plegend { color: #444; }
 }
-/* הכפתור האחרון בשורה (נרשם): הבועה נצמדת לקצה שלו במקום להיות ממורכזת — לא גולשת מחוץ למסך */
+/* אפשרות לכפתור בקצה השורה: הבועה נצמדת לקצה שלו במקום להיות ממורכזת — לא גולשת מחוץ למסך */
 .lp-pop.at-end { inset-inline-start: auto; inset-inline-end: -7px; transform: none; animation-name: lp-in-end; }
 @keyframes lp-in-end { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
