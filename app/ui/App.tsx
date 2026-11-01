@@ -247,11 +247,27 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
   const { toast, dialog } = useUi();
   const listRef = useRef<HTMLDivElement>(null);
 
+  // תלמיד שסומן לסטטוס שלא בסינון נשאר רגע על המסך (רואים את הלחיצה) ואז נעלם בהחלקה
+  const [linger, setLinger] = useState<ReadonlyMap<string, 'stay' | 'leave'>>(new Map());
+  const lingerTimers = useRef(new Map<string, ReturnType<typeof setTimeout>[]>());
+  const setLingerPhase = useCallback((id: string, phase: 'stay' | 'leave' | null) => setLinger((m) => {
+    const n = new Map(m);
+    if (phase) n.set(id, phase); else n.delete(id);
+    return n;
+  }), []);
+  const stopLinger = useCallback((id: string) => {
+    lingerTimers.current.get(id)?.forEach(clearTimeout);
+    lingerTimers.current.delete(id);
+  }, []);
+  useEffect(() => () => { lingerTimers.current.forEach((ts) => ts.forEach(clearTimeout)); }, []);
+  // סינון שהשתנה — אין סיבה להשאיר שורות "בדרך החוצה"
+  useEffect(() => { lingerTimers.current.forEach((ts) => ts.forEach(clearTimeout)); lingerTimers.current.clear(); setLinger(new Map()); }, [filter]);
+
   const visible = useMemo(() => {
     const q = query.trim();
     return [...rv.entries.values()].filter((e) =>
-      (filter.size === 0 || filter.has(e.status)) && (!q || `${e.last_name} ${e.first_name}`.includes(q)));
-  }, [rv.entries, filter, query]);
+      (filter.size === 0 || filter.has(e.status) || linger.has(e.id)) && (!q || `${e.last_name} ${e.first_name}`.includes(q)));
+  }, [rv.entries, filter, query, linger]);
 
   // כמה "לא ענה" נשארו בכל אות — לפי כל התלמידים, בלי קשר לסינון/חיפוש
   const left = useMemo(() => {
@@ -263,6 +279,10 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
     return m;
   }, [rv.entries]);
 
+  // השורות שמורות (memo) ולא מתרנדרות כשהסינון משתנה — לכן הן מקבלות פונקציה קבועה שקוראת לגרסה העדכנית
+  const setStatusLatest = useRef<(e: Entry, s: Status) => void>(() => {});
+  const onSetRow = useCallback((e: Entry, s: Status) => setStatusLatest.current(e, s), []);
+
   if (!rv.loaded) return <div className="loading">טוען את הביקורת…</div>;
   if (!rv.review) return null;
 
@@ -270,14 +290,25 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
   const setStatus = (e: Entry, s: Status, _silent = false) => {
     if (e.status === s) return;
     rv.mark(e.id, s);
+    stopLinger(e.id);
+    if (filter.size && !filter.has(s)) {
+      setLingerPhase(e.id, 'stay');
+      lingerTimers.current.set(e.id, [
+        setTimeout(() => setLingerPhase(e.id, 'leave'), 380),
+        setTimeout(() => { lingerTimers.current.delete(e.id); setLingerPhase(e.id, null); }, 380 + 280),
+      ]);
+    } else if (linger.has(e.id)) {
+      setLingerPhase(e.id, null); // חזר לסטטוס שבסינון — נשאר
+    }
   };
+  setStatusLatest.current = setStatus;
 
   const onKey = (ev: React.KeyboardEvent, e: Entry) => {
     const step = ({ ArrowLeft: 1, ArrowRight: -1, ArrowDown: 1, ArrowUp: -1 } as Record<string, number>)[ev.key];
     if (!step) return;
     ev.preventDefault();
     const next = STATUSES[(STATUSES.indexOf(e.status) + step + 5) % 5];
-    setStatus(e, next, true);
+    setStatusLatest.current(e, next);
     requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>(`[data-id="${e.id}"][aria-checked="true"]`)?.focus());
   };
 
@@ -330,7 +361,7 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
               : <span className="done-ic" role="img" aria-label="הושלם"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4 8-9" /></svg></span>}
           </h3>
           <ul className="list">
-            {items.map((e) => <StudentRow key={e.id} e={e} onSet={setStatus} onKey={onKey} />)}
+            {items.map((e) => <StudentRow key={e.id} e={e} leaving={linger.get(e.id) === 'leave'} onSet={onSetRow} onKey={onKey} />)}
           </ul>
         </section>
         );
@@ -342,13 +373,13 @@ function ReviewList({ rv, filter, query, onToggle, onClear }: {
   );
 }
 
-const StudentRow = memoRow(function StudentRow({ e, onSet, onKey }: {
-  e: Entry; onSet: (e: Entry, s: Status) => void; onKey: (ev: React.KeyboardEvent, e: Entry) => void;
+const StudentRow = memoRow(function StudentRow({ e, leaving, onSet, onKey }: {
+  e: Entry; leaving?: boolean; onSet: (e: Entry, s: Status) => void; onKey: (ev: React.KeyboardEvent, e: Entry) => void;
 }) {
   const na = e.status === NO_ANSWER;
   const labelId = `lbl-${e.id}`;
   return (
-    <li className={'stu' + (na ? ' noans' : '')}>
+    <li className={'stu' + (na ? ' noans' : '') + (leaving ? ' leaving' : '')}>
       <div className="stu-name" id={labelId}>
         {e.last_name} {e.first_name}
       </div>
@@ -430,8 +461,8 @@ function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, nu
 }
 
 // רינדור מחדש רק של השורה שהשתנתה — חשוב לרשימה של 150 תלמידים בטלפון
-function memoRow<T extends { e: Entry }>(C: React.FC<T>) {
-  return memo(C, (a, b) => a.e === b.e);
+function memoRow<T extends { e: Entry; leaving?: boolean }>(C: React.FC<T>) {
+  return memo(C, (a, b) => a.e === b.e && a.leaving === b.leaving);
 }
 
 function NoAnswerButton({ rv, count }: { rv: ReviewState; count: number }) {

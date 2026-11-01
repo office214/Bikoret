@@ -384,3 +384,12 @@ fieldset.kinds legend { padding: 0 4px; }
   main > .banner { max-width: 660px; margin-inline: auto; }
   .alpha { inset-inline-end: max(0px, calc((100vw - 660px) / 2 - 8px)); }
 }
+
+/* שורה שיוצאת מהסינון: מחליקה הצידה ונסגרת */
+.stu.leaving { animation: row-out .28s ease-in forwards; overflow: hidden; pointer-events: none; }
+@keyframes row-out {
+  0% { opacity: 1; transform: none; max-height: 100px; }
+  45% { opacity: 0; transform: translateX(-24px); max-height: 100px; padding-top: 5px; padding-bottom: 5px; }
+  100% { opacity: 0; transform: translateX(-24px); max-height: 0; padding-top: 0; padding-bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .stu.leaving { animation-duration: .01s; } }
