@@ -134,13 +134,23 @@ function Shell({ user }: { user: User }) {
   const rv = useReview();
   const [tab, setTab] = useState<Tab>('review');
   // סינון תצוגה בלבד: אפשר לבחור כמה סטטוסים יחד; ריק = כולם
-  const [filter, setFilter] = useState<ReadonlySet<Status>>(new Set());
+  // נשמר במכשיר כדי שיישאר אחרי רענון (הרשימה מוצגת רק בדפדפן, אחרי בדיקת הנעילה — אז אפשר לקרוא כאן)
+  const [filter, setFilter] = useState<ReadonlySet<Status>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('bk_filter') || '[]');
+      if (Array.isArray(saved)) return new Set(saved.filter((x): x is Status => (STATUSES as readonly string[]).includes(x)));
+    } catch {}
+    return new Set();
+  });
   const toggleFilter = useCallback((s: Status) => setFilter((f) => {
     const n = new Set(f);
     if (n.has(s)) n.delete(s); else n.add(s);
     return n;
   }), []);
   const clearFilter = useCallback(() => setFilter(new Set()), []);
+  useEffect(() => {
+    try { localStorage.setItem('bk_filter', JSON.stringify([...filter])); } catch {}
+  }, [filter]);
   const [query, setQuery] = useState('');
   const { toast } = useUi();
 
