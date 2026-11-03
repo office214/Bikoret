@@ -448,6 +448,7 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
       <h2>הגדרות מערכת</h2>
       <p className="sub">מוצג רק למנהלים.</p>
       <Passwords st={st} reload={reload} />
+      <RoshLink />
       <Line ok={!!st.sheetsEmail}>{st.sheetsEmail ? `מסד התלמידים מחובר דרך ${st.sheetsEmail}` : 'מסד התלמידים עדיין לא מחובר'}</Line>
       <Line ok={st.reviews.imported > 0}>{st.reviews.imported ? `יובאו ${st.reviews.imported} ביקורות מהגיליון הישן` : 'ההיסטוריה עדיין לא יובאה'}</Line>
       <Line ok={st.sms.ready}>{st.sms.ready ? `SMS מוגדר (${st.sms.username}, שולח ${st.sms.source})` : 'SMS עדיין לא מוגדר'}</Line>
@@ -484,6 +485,43 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
           <label className="f">מספר נייד לבדיקה<input type="tel" inputMode="tel" autoComplete="off" placeholder="05X-XXXXXXX" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} /></label>
           <div className="f" style={{ justifyContent: 'flex-end' }}><AsyncButton className="btn solid" disabled={!testPhone.trim()} onClick={() => setTest(true)}>הפעל מצב בדיקה</AsyncButton></div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** קישור קבוע לראש הישיבה — צפייה בלבד, בלי סיסמה */
+function RoshLink() {
+  const { toast, dialog } = useUi();
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { api<{ url: string }>('/api/admin/rosh-link').then((r) => setUrl(r.url)).catch(() => setUrl('')); }, []);
+  const make = async (rotate: boolean) => {
+    if (rotate) {
+      const ok = await dialog({ title: 'החלפת הקישור', ok: 'החלף', body: <p>הקישור הנוכחי יפסיק לעבוד מיד, ותצטרך לשלוח לראש הישיבה את הקישור החדש. להמשיך?</p> });
+      if (!ok) return;
+    }
+    try { const r = await api<{ url: string }>('/api/admin/rosh-link', { body: { rotate } }); setUrl(r.url); toast(rotate ? 'נוצר קישור חדש' : 'הקישור נוצר'); }
+    catch (e) { toast(errMsg(e)); }
+  };
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(url || ''); toast('הקישור הועתק'); } catch { toast('לא הצלחתי להעתיק — סמן את הקישור והעתק ידנית'); }
+  };
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <h3 style={{ margin: '4px 0', fontSize: '1em' }}>מסך ראש הישיבה</h3>
+      <p className="sub">קישור קבוע לצפייה בלבד בתוצאות הביקורות (בלי סיסמה, ובלי אפשרות לשנות כלום). מי שיש לו את הקישור — רואה.</p>
+      {url === null ? <p className="sub">טוען…</p> : url ? (
+        <>
+          <input className="search" readOnly value={url} onFocus={(e) => e.currentTarget.select()} aria-label="הקישור לראש הישיבה" dir="ltr" />
+          <div className="actions">
+            <button className="btn solid" onClick={copy}>העתק קישור</button>
+            <a className="btn" href={url} target="_blank" rel="noreferrer">פתח</a>
+            <button className="btn wa" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(url)}`, '_blank')}>שלח בוואטסאפ</button>
+            <AsyncButton className="btn danger" onClick={() => make(true)}>החלף קישור</AsyncButton>
+          </div>
+        </>
+      ) : (
+        <div className="actions"><AsyncButton className="btn solid" onClick={() => make(false)}>צור קישור</AsyncButton></div>
       )}
     </div>
   );

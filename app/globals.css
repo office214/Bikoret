@@ -458,3 +458,27 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 /* אפשרות לכפתור בקצה השורה: הבועה נצמדת לקצה שלו במקום להיות ממורכזת — לא גולשת מחוץ למסך */
 .lp-pop.at-end { inset-inline-start: auto; inset-inline-end: -7px; transform: none; animation-name: lp-in-end; }
 @keyframes lp-in-end { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+
+/* ======================= מסך ראש הישיבה ======================= */
+.rosh { max-width: 1100px; margin: 0 auto; padding: 0 0 24px; }
+.rosh-top { position: sticky; top: 0; z-index: 20; background: var(--head); border-bottom: 1px solid var(--head-line); padding: 10px 16px 8px; }
+.rosh-top h1 { margin: 0 0 8px; font-size: 1.15em; font-weight: 800; }
+/* הכל נראה בלי גלילה: "מתחילת הזמן" בשורה מלאה, ומתחתיו 1–10 בשורה אחת */
+.rosh-sel { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; max-width: 520px; }
+.rosh-sel button {
+  height: 36px; padding: 0; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--text); font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.rosh-sel button.z { grid-column: 1 / -1; order: -1; height: 38px; }
+.rosh-sel button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.rosh-sub { margin: 6px 0 0; font-size: .85em; color: var(--muted); }
+.rosh-scroll { overflow-x: auto; margin-top: 12px; padding: 0; -webkit-overflow-scrolling: touch; } /* בלי ריווח צד — כדי שעמודת השם הנעוצה תיצמד לקצה */
+.rosh-table { margin: 0 auto; }
+/* שם התלמיד נשאר במקום כשגוללים לצדדים */
+.rosh-table .pname { position: sticky; inset-inline-start: 0; z-index: 1; }
+.rosh-table td.pname { background: var(--surface-2); }
+.rosh-table thead th.pname { background: var(--surface-2); }
+/* עמודה נעוצה לא מסתדרת עם border-collapse — כאן גבולות "נפרדים", קו אחד לכל תא */
+.rosh-table { border-collapse: separate; border-spacing: 0; border-top: 1px solid var(--line); border-inline-end: 1px solid var(--line); }
+.rosh-table th, .rosh-table td { border: 0; border-bottom: 1px solid var(--line); border-inline-start: 1px solid var(--line); }
+.rosh-table .psum tr:last-child th { border-bottom: 2px solid var(--text); }

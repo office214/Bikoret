@@ -1,11 +1,13 @@
 import { config, MILUIM, NO_ANSWER, REVIEW_TYPES, SESSIONS, STATUSES, type Status } from './config';
 import { audit, db } from './db';
 import { autoSession, hebrewDateShort, sessionForTime, timeHHmm } from './hebdate';
-import { getSetting } from './secure';
+import { randomBytes, timingSafeEqual } from 'crypto';
+import { getSetting, setSetting } from './secure';
 import { HttpError } from './http';
 import { readSheet } from './google';
 import { normId, normText, readCentralStudents, selectForReview } from './students';
 import { adminReport, send019, smsSettings, smsText, toInternational972, validMobile, type SmsKind } from './sms';
+import { currentZman, parseHebDate, sameZman, zmanLabel, zmanOf } from './zman';
 
 export type ReviewMeta = {
   id: number; number: number | null; status: 'open' | 'closed'; session: string; type: string;
@@ -364,28 +366,34 @@ export async function studentHistory(studentId: string) {
     order by r.number desc`;
 }
 
-/** נתוני הדפסה: N הביקורות האחרונות, לתלמידי הביקורת הפתוחה (או האחרונה שנסגרה) */
-export async function printData(kind: string, count: number) {
-  const sql = await db();
-  const reviews = await sql`
-    select id, number, date_heb, time, type, total, chaser, nirsham, bishuv, lo_ana, pct::float as pct, passed
-    from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(count, 1), 10)}`;
-  if (!reviews.length) return { reviews: [], rows: [] };
-  if (kind === 'cover') return { reviews, rows: [] };
+const REVIEW_COLS = 'id, number, date_heb, time, type, total, chaser, nirsham, bishuv, lo_ana, pct::float as pct, passed';
 
+/** טבלת תלמידים × ביקורות: תלמידי הביקורת הפתוחה (או האחרונה שנסגרה), והסטטוס שלהם בכל ביקורת */
+async function studentTable(reviews: readonly { id?: unknown }[]) {
+  const sql = await db();
   const [open] = await sql`select id from reviews where status = 'open'`;
-  const baseId = open ? open.id : reviews[0].id;
-  const ids = reviews.map((r) => r.id);
+  const ids = reviews.map((r) => Number(r.id));
+  const baseId = open ? open.id : ids[0];
   const people = await sql`select student_id, last_name, first_name from entries where review_id = ${baseId} order by last_name, first_name`;
   const marks = await sql`select review_id, student_id, status, note from entries where review_id = any(${ids}) and student_id = any(${people.map((p) => p.student_id)})`;
   const map = new Map<string, { s: string; n: string }>();
   marks.forEach((m) => map.set(`${m.review_id}:${m.student_id}`, { s: m.status === 'נוכח' ? '' : m.status, n: m.note || '' }));
-
-  const rows = people.map((p) => ({
-    last: p.last_name, first: p.first_name,
+  return people.map((p) => ({
+    last: p.last_name as string, first: p.first_name as string,
     statuses: reviews.map((r) => map.get(`${r.id}:${p.student_id}`)?.s || ''),
     notes: reviews.map((r) => map.get(`${r.id}:${p.student_id}`)?.n || ''),
-  })).filter((row) => {
+  }));
+}
+
+/** נתוני הדפסה: N הביקורות האחרונות, לתלמידי הביקורת הפתוחה (או האחרונה שנסגרה) */
+export async function printData(kind: string, count: number) {
+  const sql = await db();
+  const reviews = await sql`
+    select ${sql.unsafe(REVIEW_COLS)}
+    from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(count, 1), 10)}`;
+  if (!reviews.length) return { reviews: [], rows: [] };
+  if (kind === 'cover') return { reviews, rows: [] };
+  const rows = (await studentTable(reviews)).filter((row) => {
     const s = row.statuses[0];
     if (kind === 'missing') return s === 'חסר' || s === 'לא ענה';
     if (kind === 'bishuv') return s === 'בישוב';
@@ -393,6 +401,58 @@ export async function printData(kind: string, count: number) {
     return true;
   });
   return { reviews, rows };
+}
+
+/** מסך ראש הישיבה: N הביקורות האחרונות, או כל הביקורות מתחילת הזמן הנוכחי (בבין הזמנים — הזמן האחרון) */
+export async function roshData(sel: number | 'zman') {
+  const sql = await db();
+  let reviews;
+  let zman = '';
+  if (sel === 'zman') {
+    const z = currentZman();
+    const all = await sql`select ${sql.unsafe(REVIEW_COLS)} from reviews where status = 'closed' order by number`;
+    // שנה חסרה (ביקורות ישנות מהגיליון) — לוקחים מהביקורת שלפניה
+    let lastYear: number | null = null;
+    const inZman = all.filter((r) => {
+      const d = parseHebDate(r.date_heb);
+      if (!d) return false;
+      if (d.year === null) d.year = lastYear; else lastYear = d.year;
+      return sameZman(zmanOf(d), z);
+    });
+    reviews = inZman.reverse();
+    zman = z ? zmanLabel(z) : '';
+  } else {
+    reviews = await sql`select ${sql.unsafe(REVIEW_COLS)} from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(sel, 1), 10)}`;
+  }
+  if (!reviews.length) return { reviews: [], rows: [], zman };
+  return { reviews, rows: await studentTable(reviews), zman };
+}
+
+/* ---------- קישור קבוע לראש הישיבה (צפייה בלבד, בלי סיסמה) ---------- */
+
+const ROSH_KEY = 'rosh_token';
+
+export async function roshToken(create: boolean, user: string) {
+  let t = await getSetting(ROSH_KEY);
+  if (!t && create) {
+    t = randomBytes(18).toString('base64url');
+    await setSetting(ROSH_KEY, t, user);
+    await audit(user, 'rosh-link', { action: 'create' });
+  }
+  return t;
+}
+
+export async function rotateRoshToken(user: string) {
+  const t = randomBytes(18).toString('base64url');
+  await setSetting(ROSH_KEY, t, user);
+  await audit(user, 'rosh-link', { action: 'rotate' });
+  return t;
+}
+
+export async function checkRoshToken(t: string): Promise<boolean> {
+  const real = await getSetting(ROSH_KEY);
+  if (!real || !t || t.length !== real.length) return false;
+  return timingSafeEqual(Buffer.from(t), Buffer.from(real));
 }
 
 /* ---------- ייבוא חד-פעמי מגיליון "מסד" בקובץ ביקורת הישן ---------- */
