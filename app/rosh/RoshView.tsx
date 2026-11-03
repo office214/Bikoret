@@ -208,18 +208,18 @@ function StudentCard({ token, id, name, onClose }: { token: string; id: string; 
     <div className="rcard-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <section className="rcard" role="dialog" aria-modal="true" aria-label={`${name} — היסטוריה`}>
         <header className="rcard-h">
-          <div><h2>{name} — היסטוריה</h2><p className="rosh-sub">{hist ? `${total} ביקורות במערכת` : '…'}</p></div>
+          <div>
+            <h2>{name} — היסטוריה</h2>
+            <p className="rosh-sub">
+              {hist ? `${total} ביקורות במערכת` : '…'}
+              {hist && total > 0 && <> · נוכחות <bdi dir="ltr">{Math.round((present + count((s) => s === 'בישוב')) / total * 100)}%</bdi></>}
+            </p>
+          </div>
           <button className="rcard-x" onClick={onClose} aria-label="סגירה">✕</button>
         </header>
         {err ? <p className="empty">{err}</p> : !hist ? <p className="loading">טוען…</p> : (
           <>
-            <div className="rcard-stats">
-              <div><b>{total ? `${Math.round((present + count((s) => s === 'בישוב')) / total * 100)}%` : '—'}</b><span>נוכחות</span></div>
-              <div><b>{count((s) => s === 'בישוב')}</b><span>בישוב</span></div>
-              <div><b>{count((s) => s === 'חסר' || s === 'לא ענה')}</b><span>חסר / לא ענה</span></div>
-              <div><b>{count((s) => s === 'נרשם')}</b><span>נרשם</span></div>
-            </div>
-            <div className="rcard-tabs fit" role="tablist">
+            <div className="rcard-tabs fit counts" role="tablist">
               <button role="tab" aria-selected={tab === 'bishuv'} onClick={() => setTab('bishuv')}>בישוב <span>{count((s) => s === 'בישוב')}</span></button>
               <button role="tab" aria-selected={tab === 'missing'} onClick={() => setTab('missing')}>חסר ולא ענה <span>{count((s) => s === 'חסר' || s === 'לא ענה')}</span></button>
               <button role="tab" aria-selected={tab === 'nirsham'} onClick={() => setTab('nirsham')}>נרשם <span>{count((s) => s === 'נרשם')}</span></button>

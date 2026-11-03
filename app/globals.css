@@ -539,3 +539,7 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .rcard { height: 88dvh; max-height: 88dvh; }
 @media (min-width: 720px) { .rcard { height: min(80vh, 720px); max-height: min(80vh, 720px); } }
 .rcard-list { align-content: start; }
+/* כרטיס תלמיד: הלשונית היא גם המונה — המספר בולט מעל השם */
+.rcard-tabs.fit.counts button { min-height: 58px; flex-direction: column-reverse; gap: 1px; }
+.rcard-tabs.fit.counts button span { font-size: 1.45em; font-weight: 800; color: var(--text); line-height: 1.1; }
+.rcard-tabs.fit.counts button[aria-selected="true"] span { color: inherit; opacity: 1; }
