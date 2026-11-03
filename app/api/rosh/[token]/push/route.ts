@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!(await checkRoshToken((await params).token))) return nope();
   try {
     const { sub } = await req.json();
-    await saveSub(sub, req.headers.get('user-agent') || '');
+    await saveSub('rosh', sub, req.headers.get('user-agent') || '');
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'שגיאה' }, { status: 400 });
@@ -29,6 +29,6 @@ export async function POST(req: Request, { params }: Ctx) {
 export async function DELETE(req: Request, { params }: Ctx) {
   if (!(await checkRoshToken((await params).token))) return nope();
   const { endpoint } = await req.json().catch(() => ({ endpoint: '' }));
-  if (endpoint) await removeSub(String(endpoint));
+  if (endpoint) await removeSub('rosh', String(endpoint));
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { PushToggle } from '../ui/push';
+import { WhenDialog } from '../ui/when';
 
 type Review = {
   id: number; number: number; date_heb: string; time: string; type: string; total: number;
@@ -43,6 +45,8 @@ export default function RoshView({ token }: { token: string }) {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
   const [err, setErr] = useState('');
+  const reqs = useRoshRequests(token);
+  const [ask, setAsk] = useState<{ mode: 'create' } | { mode: 'repropose'; req: Req } | null>(null);
 
   const load = useCallback(async (s: Sel) => {
     try {
@@ -82,7 +86,12 @@ export default function RoshView({ token }: { token: string }) {
             : sel === 1 ? 'הביקורת האחרונה' : `${sel} הביקורות האחרונות`}
           {n > 0 && ' · לחצו על ביקורת או על תלמיד לפרטים'}
         </p>
-        <NotifyControl token={token} onRefresh={() => load(sel)} />
+        <div className="rosh-actions">
+          <PushToggle api={`/api/rosh/${token}/push`} onLabel="התראות פעילות במחשב הזה" offLabel="הפעלת התראות במחשב הזה"
+            testMsg="נשלחה התראת בדיקה — היא אמורה להופיע בפינת המסך" onRefresh={() => { load(sel); reqs.reload(); }} />
+          <button className="rreq-btn" onClick={() => setAsk({ mode: 'create' })}><CalIcon /> בקשה לבצע ביקורת</button>
+        </div>
+        <RequestsStrip reqs={reqs} onPick={(r) => setAsk({ mode: 'repropose', req: r })} />
       </header>
 
       {err ? <div className="empty">{err}</div>
@@ -130,6 +139,20 @@ export default function RoshView({ token }: { token: string }) {
           </div>
         )}
       {data && card?.kind === 'review' && data.reviews[card.col] && <ReviewCard data={data} col={card.col} onClose={closeReview} onStudent={(id, name) => openCard({ kind: 'student', id, name })} />}
+      {ask && (
+        <WhenDialog
+          title={ask.mode === 'create' ? 'בקשה לבצע ביקורת' : 'בחירת מועד אחר'}
+          sub={ask.mode === 'create' ? 'בחרו יום בלוח ושעה — הבקשה תישלח לטלפון של המזכירות' : `המועד הנוכחי: ${ask.req.label}`}
+          initial={ask.mode === 'repropose' ? { date: ask.req.ymd, time: ask.req.hhmm } : undefined}
+          noteLabel="הערה למזכירות" initialNote={ask.mode === 'repropose' ? ask.req.note : ''}
+          submitLabel="שליחת הבקשה"
+          onClose={() => setAsk(null)}
+          onSubmit={async (w, note) => {
+            await reqs.act(ask.mode === 'create' ? { action: 'create', ...w, note } : { action: 'repropose', id: ask.req.id, ...w, note });
+            setAsk(null);
+            reqs.flash('הבקשה נשלחה למזכירות');
+          }} />
+      )}
       {card?.kind === 'student' && <StudentCard token={token} id={card.id} name={card.name} onClose={closeReview} />}
       {data && card?.kind === 'note' && data.reviews[card.col] && (
         <NoteCard card={card} review={data.reviews[card.col]} onClose={closeReview}
@@ -283,86 +306,80 @@ function NoteCard({ card, review, onClose, onStudent }: {
   );
 }
 
-/* ---------- התראות במחשב הזה (Web Push) ---------- */
+/* ---------- בקשות לבצע ביקורת ---------- */
 
-type NState = 'loading' | 'unsupported' | 'denied' | 'off' | 'on' | 'busy';
-
-const b64ToBytes = (b64: string) => {
-  const s = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from(s, (c) => c.charCodeAt(0));
+type Req = {
+  id: number; at: string; asked_at: string; note: string; reply: string;
+  status: 'pending' | 'counter' | 'approved'; label: string; asked_label: string; ymd: string; hhmm: string;
 };
 
-function BellIcon() {
-  return <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 15v1h15v-1L18 12.5V9a6 6 0 0 0-6-6zm-2 15a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>;
+function useRoshRequests(token: string) {
+  const [list, setList] = useState<Req[]>([]);
+  const [msg, setMsg] = useState('');
+  const reload = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/rosh/${token}/requests`, { cache: 'no-store' });
+      if (r.ok) setList((await r.json()).requests);
+    } catch {}
+  }, [token]);
+  useEffect(() => {
+    reload();
+    const t = setInterval(() => { if (!document.hidden) reload(); }, 60_000);
+    const onVis = () => { if (!document.hidden) reload(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+  }, [reload]);
+  const act = useCallback(async (b: Record<string, unknown>) => {
+    const r = await fetch(`/api/rosh/${token}/requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'שגיאה');
+    await reload();
+  }, [token, reload]);
+  const flash = useCallback((m: string) => { setMsg(m); setTimeout(() => setMsg(''), 5000); }, []);
+  return { list, reload, act, msg, flash };
 }
 
-function NotifyControl({ token, onRefresh }: { token: string; onRefresh: () => void }) {
-  const [st, setSt] = useState<NState>('loading');
-  const [msg, setMsg] = useState('');
-  const api = `/api/rosh/${token}/push`;
+function CalIcon() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v5M16 3v5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" /></svg>;
+}
 
-  const current = async () => {
-    const reg = await navigator.serviceWorker.getRegistration('/');
-    return reg ? reg.pushManager.getSubscription() : null;
+function RequestsStrip({ reqs, onPick }: { reqs: ReturnType<typeof useRoshRequests>; onPick: (r: Req) => void }) {
+  const [busy, setBusy] = useState(0);
+  const run = async (id: number, b: Record<string, unknown>, done: string) => {
+    if (busy) return;
+    setBusy(id);
+    try { await reqs.act(b); reqs.flash(done); } catch (e) { reqs.flash(e instanceof Error ? e.message : String(e)); } finally { setBusy(0); }
   };
-
-  useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) { setSt('unsupported'); return; }
-    if (Notification.permission === 'denied') { setSt('denied'); return; }
-    current().then((sub) => setSt(sub && Notification.permission === 'granted' ? 'on' : 'off')).catch(() => setSt('off'));
-    // לחיצה על התראה כשהמסך כבר פתוח — מרעננים את הנתונים
-    const onMsg = (e: MessageEvent) => { if (e.data?.type === 'refresh') onRefresh(); };
-    navigator.serviceWorker.addEventListener('message', onMsg);
-    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const enable = async () => {
-    setSt('busy'); setMsg('');
-    try {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { setSt(perm === 'denied' ? 'denied' : 'off'); return; }
-      const reg = await navigator.serviceWorker.register('/rosh-sw.js', { scope: '/' });
-      await navigator.serviceWorker.ready;
-      const { publicKey } = await (await fetch(api, { cache: 'no-store' })).json();
-      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
-      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON() }) });
-      if (!r.ok) throw new Error((await r.json()).error || 'שגיאה');
-      setSt('on'); setMsg('ההתראות הופעלו במחשב הזה');
-    } catch (e) { setSt('off'); setMsg(e instanceof Error ? e.message : String(e)); }
-  };
-
-  const test = async () => {
-    setMsg('');
-    const sub = await current();
-    const r = await fetch(`${api}/test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub?.endpoint }) });
-    setMsg(r.ok ? 'נשלחה התראת בדיקה — היא אמורה להופיע בפינת המסך' : 'שליחת הבדיקה נכשלה');
-  };
-
-  const disable = async () => {
-    setSt('busy');
-    const sub = await current();
-    if (sub) {
-      await fetch(api, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) });
-      await sub.unsubscribe();
-    }
-    setSt('off'); setMsg('ההתראות בוטלו במחשב הזה');
-  };
-
-  if (st === 'loading' || st === 'unsupported') return null;
+  const cancel = (r: Req) => { if (confirm(`לבטל את הבקשה לביקורת ב${r.label}?`)) run(r.id, { action: 'cancel', id: r.id }, 'הבקשה בוטלה'); };
+  if (!reqs.list.length && !reqs.msg) return null;
   return (
-    <div className="rnotify">
-      {st === 'on' ? (
-        <>
-          <span className="on"><BellIcon /> התראות על ביקורות פעילות במחשב הזה</span>
-          <button onClick={test}>שלח התראת בדיקה</button>
-          <button onClick={disable}>בטל</button>
-        </>
-      ) : st === 'denied' ? (
-        <span className="off">ההתראות חסומות בדפדפן — אפשר לאשר אותן בהגדרות האתר (ליד שורת הכתובת)</span>
-      ) : (
-        <button className="primary" onClick={enable} disabled={st === 'busy'}><BellIcon /> {st === 'busy' ? 'רגע…' : 'הפעלת התראות במחשב הזה'}</button>
-      )}
-      {msg && <span className="msg">{msg}</span>}
+    <div className="rreqs">
+      {reqs.list.map((r) => (
+        <div key={r.id} className={'rreq ' + r.status} aria-busy={busy === r.id}>
+          {r.status === 'counter' ? (
+            <>
+              <p><b>המזכירות מציעה מועד אחר:</b> {r.label} <small>(במקום {r.asked_label})</small></p>
+              {r.reply && <p className="rreq-reply">{r.reply}</p>}
+              <div className="rreq-a">
+                <button className="ok" disabled={!!busy} onClick={() => run(r.id, { action: 'accept', id: r.id }, 'אישרת — המזכירות קיבלה הודעה')}>✓ מאשר</button>
+                <button disabled={!!busy} onClick={() => onPick(r)}>מועד אחר</button>
+                <button disabled={!!busy} onClick={() => cancel(r)}>ביטול הבקשה</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>{r.status === 'approved' ? <b className="pass">✓ ביקורת מאושרת:</b> : <b>ביקשת ביקורת:</b>} {r.label}
+                {r.status === 'pending' && <small> · ממתין לאישור המזכירות</small>}</p>
+              {r.note && <p className="rreq-reply">{r.note}</p>}
+              <div className="rreq-a">
+                <button disabled={!!busy} onClick={() => onPick(r)}>שינוי מועד</button>
+                <button disabled={!!busy} onClick={() => cancel(r)}>ביטול</button>
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+      {reqs.msg && <p className="rreq-msg" role="status">{reqs.msg}</p>}
     </div>
   );
 }

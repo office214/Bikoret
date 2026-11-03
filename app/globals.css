@@ -605,3 +605,80 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .rnotify .on { display: inline-flex; align-items: center; gap: 5px; color: var(--ok); font-weight: 700; }
 .rnotify .off { color: var(--warn); }
 .rnotify .msg { flex-basis: 100%; color: var(--muted); }
+
+/* בקשה לבצע ביקורת — כפתור במסך ראש הישיבה */
+.rosh-actions { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 6px 10px; }
+.rosh-actions .rnotify { margin-top: 8px; }
+.rreq-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; margin-top: 8px; padding: 0 14px; border-radius: 16px; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); font: inherit; font-size: .85em; font-weight: 800; cursor: pointer; }
+.rreq-btn:hover { background: var(--accent); color: var(--on-accent); }
+.rreqs { display: grid; gap: 6px; max-width: 640px; margin: 8px auto 0; font-size: .88em; }
+.rreq { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 10px; padding: 7px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.rreq p { margin: 0; }
+.rreq small { color: var(--muted); font-weight: 400; }
+.rreq.counter { border-color: #d9a400; background: #fff8dc; color: #4a3a00; }
+.rreq.approved { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.rreq-reply { flex-basis: 100%; color: var(--muted); font-size: .95em; }
+.rreq.counter .rreq-reply { color: #6b5600; }
+.rreq-a { display: flex; flex-wrap: wrap; gap: 6px; }
+.rreq-a button { height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.rreq-a button.ok { background: var(--ok); border-color: var(--ok); color: var(--on-ok); }
+.rreq-a button:disabled { opacity: .5; cursor: progress; }
+.rreq-msg { margin: 0; color: var(--ok); font-weight: 700; }
+:root[data-theme="dark"] .rreq.counter { background: #3a3110; color: #f3d77a; border-color: #8a7420; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rreq.counter { background: #3a3110; color: #f3d77a; border-color: #8a7420; } }
+
+/* חלון בחירת מועד: לוח חודש עברי + שעה */
+.when-bg { z-index: 60; }
+.rnote.when { width: min(420px, 100%); max-height: calc(100dvh - 24px); overflow-y: auto; }
+.hcal { margin: 0 16px; }
+.hcal-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.hcal-h b { font-size: 1.1em; }
+.hcal-nav { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 1.4em; line-height: 1; cursor: pointer; }
+.hcal-nav:disabled { opacity: .3; cursor: default; }
+.hcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; direction: rtl; }
+.hcal-w { text-align: center; font-size: .75em; font-weight: 800; color: var(--muted); padding: 2px 0 4px; }
+.hcal-w.shab { color: var(--muted); opacity: .6; }
+.hcal-d { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; aspect-ratio: 1 / .9; min-height: 40px; border: 1px solid transparent; border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; padding: 0; }
+.hcal-d .hd { font-weight: 800; font-size: 1.02em; line-height: 1.1; }
+.hcal-d .gd { font-size: .62em; color: var(--muted); line-height: 1; }
+.hcal-d.today { border-color: var(--accent); }
+.hcal-d:disabled { opacity: .3; cursor: default; background: transparent; }
+.hcal-d.shab:disabled { opacity: .45; }
+.hcal-d[aria-selected="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.hcal-d[aria-selected="true"] .gd { color: inherit; opacity: .8; }
+@media (hover: hover) and (pointer: fine) { .hcal-d:not(:disabled):not([aria-selected="true"]):hover { border-color: var(--accent); } }
+.when-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px; margin: 12px 16px 0; }
+.when-sel { font-weight: 800; padding-bottom: 8px; }
+.tpick { display: flex; align-items: flex-end; gap: 4px; direction: rtl; }
+.tpick label { display: grid; gap: 2px; font-size: .72em; color: var(--muted); font-weight: 700; }
+.tpick select { height: 40px; min-width: 64px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 1.25rem; font-weight: 800; text-align: center; direction: ltr; }
+.tpick > span { font-size: 1.3em; font-weight: 800; padding-bottom: 6px; }
+.when-note { display: grid; gap: 3px; margin: 10px 16px 0; font-size: .82em; color: var(--muted); font-weight: 700; }
+.when-note input { height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 1rem; padding: 0 10px; }
+.when-err { margin: 8px 16px 0; color: var(--warn); font-weight: 700; }
+.rnote.when .rnote-actions { gap: 8px; }
+
+/* בקשות של ראש הישיבה — בצד של המזכירות */
+.reqs { display: grid; gap: 8px; margin-bottom: 12px; }
+.req { padding: 12px 14px; border-radius: 14px; border: 2px solid var(--accent); background: var(--surface); }
+.req.pending { border-color: #d9a400; background: #fff8dc; color: #3a2e00; }
+.req.counter { border-style: dashed; border-color: var(--line); }
+.req.approved { border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+.req.focus { animation: req-flash 1.2s ease-out 2; }
+@keyframes req-flash { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); } }
+.req p { margin: 0; }
+.req-t { font-size: .82em; font-weight: 700; color: var(--muted); }
+.req.pending .req-t { color: #6b5600; }
+.req-when { font-size: 1.12em; font-weight: 800; margin-top: 2px !important; }
+.req-when small { font-size: .7em; font-weight: 500; color: var(--muted); }
+.req-note { margin-top: 4px !important; font-size: .92em; }
+.req-a { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.req-hint { flex: 1; font-size: .8em; color: var(--muted); }
+.req-push { display: grid; gap: 4px; padding: 8px 12px; border-radius: 12px; background: var(--bg); font-size: .85em; color: var(--muted); }
+.req-push .rnotify { justify-content: flex-start; margin-top: 0; }
+:root[data-theme="dark"] .req.pending { background: #3a3110; color: #f3d77a; border-color: #8a7420; }
+:root[data-theme="dark"] .req.pending .req-t { color: #e0c463; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .req.pending { background: #3a3110; color: #f3d77a; border-color: #8a7420; }
+  :root:not([data-theme="light"]) .req.pending .req-t { color: #e0c463; }
+}

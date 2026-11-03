@@ -6,6 +6,7 @@ import { AdminView, HistoryView, PrintView } from './views';
 import { useSms } from './useSms';
 import { typeLabel } from './kit';
 import { LockGate } from './lock';
+import { RequestsBar } from './requests';
 
 type User = { email: string; name: string; admin: boolean };
 export type Review = { id: number; number: number | null; session: string; type: string; date_heb: string; time: string };
@@ -182,9 +183,11 @@ function Shell({ user }: { user: User }) {
   const [query, setQuery] = useState('');
   const { toast } = useUi();
 
+  const [focusReq, setFocusReq] = useState<number | undefined>();
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     if (p.get('tab') === 'admin') setTab('admin');
+    if (p.get('req')) setFocusReq(Number(p.get('req'))); // נפתח מהתראה על בקשה של ראש הישיבה
     if (p.get('connected')) toast('מסד התלמידים חובר בהצלחה');
     if (p.size) window.history.replaceState(null, '', '/');
   }, [toast]);
@@ -277,6 +280,7 @@ function Shell({ user }: { user: User }) {
 
       <main>
         {rv.smsTest && <div className="banner no-print" role="note"><Warn />מצב בדיקת SMS פעיל — הודעות נשלחות רק למספר הבדיקה, לא לתלמידים.</div>}
+        {tab === 'review' && rv.loaded && <RequestsBar showApproved={!rv.review} focus={focusReq} />}
         {tab === 'review' && rv.loaded && !rv.review && <Home rv={rv} />}
         {tab === 'review' && <ReviewList rv={rv} filter={filter} query={query} />}
         {tab === 'history' && <HistoryView admin={user.admin} />}

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, AsyncButton, errMsg, NO_ANSWER, pctText, Result, STATUSES, TYPES, typeLabel, useUi, Warn } from './kit';
 import type { ReviewState } from './App';
 import { openWhatsApp, useSms } from './useSms';
+import { PushToggle } from './push';
+import { ADMIN_PUSH } from './requests';
 
 type HistRow = {
   id: number; number: number; session: string; type: string; date_heb: string; time: string; total: number; present: number;
@@ -401,7 +403,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
   const items: { key: AdminSection; title: string; sub: string; warn?: boolean; admin?: boolean }[] = [
     { key: 'review', title: 'הביקורת הפתוחה', sub: r ? `${typeLabel(r.type)} · ${r.session} · ${counts[NO_ANSWER]} לא ענו — SMS, פרטים וסגירה` : 'אין ביקורת פתוחה' },
     { key: 'sms', title: 'הודעות SMS', admin: true, sub: !st ? '…' : st.sms.testPhone ? `מצב בדיקה פעיל — רק ל-${st.sms.testPhone}` : st.sms.ready ? `מוגדר (${st.sms.username})` : 'עדיין לא מוגדר', warn: !!st && (!st.sms.ready || !!st.sms.testPhone) },
-    { key: 'rosh', title: 'מסך ראש הישיבה', admin: true, sub: 'קישור קבוע לצפייה בלבד בתוצאות' },
+    { key: 'rosh', title: 'מסך ראש הישיבה', admin: true, sub: 'קישור קבוע, התראות ובקשות לביקורת' },
     { key: 'db', title: 'מסד התלמידים והיסטוריה', admin: true, sub: !st ? '…' : [st.sheetsEmail ? 'מחובר' : 'לא מחובר', st.reviews.gaps?.length ? `חסרים מספרים ברצף` : `רצף תקין עד #${st.reviews.last_number ?? '—'}`].join(' · '), warn: !!st && (!st.sheetsEmail || !!st.reviews.gaps?.length) },
     { key: 'passwords', title: 'סיסמאות', admin: true, sub: !st ? '…' : st.passwords.user && st.passwords.admin ? 'סיסמת כניסה וסיסמת מנהל מוגדרות' : 'חסרה סיסמה', warn: !!st && !(st.passwords.user && st.passwords.admin) },
   ];
@@ -443,6 +445,13 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       ) : <div className="card"><p className="sub" style={{ margin: 0 }}>אין ביקורת פתוחה. ביקורת חדשה נפתחת ממסך הבית (לשונית ביקורת).</p></div>)}
       {user.admin && st && section === 'sms' && <div className="card"><SmsSection st={st} reload={reloadAll} /></div>}
       {user.admin && section === 'rosh' && <div className="card"><RoshLink /></div>}
+      {user.admin && section === 'rosh' && (
+        <div className="card">
+          <h2>בקשות מראש הישיבה</h2>
+          <p className="sub">במסך שלו יש כפתור &quot;בקשה לבצע ביקורת&quot; עם לוח עברי. הבקשה מגיעה כהתראה לטלפון הזה, ואחרי אישור — תזכורת שעה לפני המועד.</p>
+          <PushToggle {...ADMIN_PUSH} />
+        </div>
+      )}
       {user.admin && st && section === 'db' && <div className="card"><DbSection st={st} reload={reloadAll} /></div>}
       {user.admin && st && section === 'passwords' && <div className="card"><Passwords st={st} reload={reloadAll} /></div>}
     </>

@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
 const typeLabel = (t: string) => t.replace(/^חיצונית/, 'ביקורת אמת').replace(/^פנימית$/, 'ביקורת פנימית');
 
 /** כמה מחשבים של ראש הישיבה רשומים להתראות */
-export const GET = handler<Ctx>(async () => ({ devices: await pushDevices() }));
+export const GET = handler<Ctx>(async () => ({ devices: await pushDevices('rosh') }));
 
 /** התראה לראש הישיבה על ביקורת שנסגרה (רק אחרי שמי שסגר אישר) */
 export const POST = handler<Ctx>(async (req, user, { params }) => {
@@ -22,7 +22,7 @@ export const POST = handler<Ctx>(async (req, user, { params }) => {
   if (!token) throw new HttpError(400, 'עוד לא נוצר קישור לראש הישיבה');
   const pct = r.pct === null ? '' : `נוכחות ${Math.round(r.pct * 1000) / 10}%`;
   const result = r.passed === null ? '' : r.passed ? 'עובר ✓' : 'נכשל ✗';
-  const res = await sendPush({
+  const res = await sendPush('rosh', {
     title: `ביקורת #${r.number} נסגרה — ${[pct, result].filter(Boolean).join(' · ')}`,
     body: `${typeLabel(r.type)} · ${r.date_heb} ${r.time}\nחסר ${r.chaser} · לא ענה ${r.lo_ana} · נרשם ${r.nirsham} · בישוב ${r.bishuv}`,
     url: `/rosh/${token}`,

@@ -85,7 +85,7 @@ create table if not exists app_settings (
   updated_by text
 );
 
--- מחשבים/דפדפנים של ראש הישיבה שביקשו לקבל התראות (Web Push)
+-- מכשירים שמקבלים התראות (Web Push): rosh = המחשב של ראש הישיבה, admin = הטלפון של המזכירות
 create table if not exists push_subs (
   endpoint   text primary key,
   p256dh     text not null,
@@ -93,6 +93,34 @@ create table if not exists push_subs (
   ua         text,
   created_at timestamptz not null default now()
 );
+create table if not exists push_devices (
+  endpoint   text not null,
+  role       text not null check (role in ('rosh','admin')),
+  p256dh     text not null,
+  auth       text not null,
+  ua         text,
+  created_at timestamptz not null default now(),
+  primary key (endpoint, role)
+);
+-- העברה חד-פעמית של ההרשמות הישנות (כולן של ראש הישיבה)
+with m as (delete from push_subs returning *)
+insert into push_devices (endpoint, role, p256dh, auth, ua, created_at)
+select endpoint, 'rosh', p256dh, auth, ua, created_at from m on conflict do nothing;
+
+-- בקשות של ראש הישיבה לבצע ביקורת במועד מסוים
+create table if not exists review_requests (
+  id          serial primary key,
+  at          timestamptz not null,          -- המועד הנוכחי (המבוקש / המוצע / המאושר)
+  asked_at    timestamptz not null,          -- המועד שראש הישיבה ביקש במקור
+  note        text not null default '',      -- הערה של ראש הישיבה
+  reply       text not null default '',      -- הערה של המזכירות (עם הצעה למועד אחר)
+  status      text not null check (status in ('pending','counter','approved','cancelled','done')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  updated_by  text,
+  reminded_at timestamptz
+);
+create index if not exists review_requests_active on review_requests (status, at);
 
 create table if not exists audit_log (
   id         serial primary key,

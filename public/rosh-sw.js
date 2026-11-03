@@ -1,4 +1,4 @@
-/* Service worker של מסך ראש הישיבה — מציג התראות על ביקורות שנסגרו */
+/* Service worker להתראות: המחשב של ראש הישיבה (ביקורת נסגרה, תשובות לבקשות) והטלפון של המזכירות (בקשות ותזכורות) */
 self.addEventListener('push', (event) => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch { d = { title: 'ביקורת נסגרה', body: event.data ? event.data.text() : '' }; }
@@ -18,7 +18,9 @@ self.addEventListener('notificationclick', (event) => {
   const url = new URL(event.notification.data?.url || '/', self.location.origin).href;
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const w of wins) if (w.url.startsWith(url)) { await w.focus(); w.postMessage({ type: 'refresh' }); return; }
+    // חלון פתוח של אותו מסך (מסך ראש הישיבה / האפליקציה) — מביאים לקדמה ומרעננים
+    const path = new URL(url).pathname;
+    for (const w of wins) if (new URL(w.url).pathname === path) { await w.focus(); w.postMessage({ type: 'refresh', url }); return; }
     await self.clients.openWindow(url);
   })());
 });
