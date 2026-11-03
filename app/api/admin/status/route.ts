@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { sheetsConnectedEmail, googleConfigured } from '@/lib/google';
 import { smsSettings } from '@/lib/sms';
 import { getSetting } from '@/lib/secure';
-import { numberGaps, SMS_TEST_KEY } from '@/lib/reviews';
+import { ensureSequential, numberGaps, SMS_TEST_KEY } from '@/lib/reviews';
 import { passwordsStatus } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic';
 const mask = (v: string, keep = 4) => (!v ? '' : v.length <= keep ? '•'.repeat(v.length) : '••••' + v.slice(-keep));
 
 export const GET = handler(async () => {
+  await ensureSequential();
   const sql = await db();
   const [counts] = await sql`
     select count(*) filter (where imported)::int as imported,

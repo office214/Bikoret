@@ -246,6 +246,28 @@ export async function compactNumbers(user: string) {
   return { changed };
 }
 
+/**
+ * בדיקה אוטומטית של רצף המספרים: לפני כל הצגה של תוצאות / הדפסה / מסך ראש הישיבה,
+ * לכל היותר פעם בדקה לכל שרת. אם יש חור — מסדר מיד, בלי שמישהו יצטרך לעשות משהו.
+ */
+const gNum = globalThis as unknown as { __numCheckedAt?: number };
+export async function ensureSequential() {
+  if (gNum.__numCheckedAt && Date.now() - gNum.__numCheckedAt < 60_000) return;
+  gNum.__numCheckedAt = Date.now();
+  try {
+    const sql = await db();
+    const [{ gap }] = await sql`
+      select exists (
+        select 1 from (select number, lag(number) over (order by number) as prev from reviews where number is not null) x
+        where number - prev <> 1
+      ) as gap`;
+    if (gap) await compactNumbers('אוטומטי');
+  } catch (e) {
+    gNum.__numCheckedAt = undefined;
+    console.error('ensureSequential', e);
+  }
+}
+
 export async function discardReview(reviewId: number, user: string) {
   const sql = await db();
   await sql`delete from reviews where id = ${reviewId} and status = 'open'`;
@@ -368,6 +390,7 @@ export async function sendReviewSms(reviewId: number, kind: SmsKind, force: bool
 /* ---------- תוצאות ---------- */
 
 export async function history() {
+  await ensureSequential();
   const sql = await db();
   return sql`
     select id, number, session, type, date_heb, time, total, present, bishuv, chaser, lo_ana, nirsham,
@@ -441,6 +464,7 @@ async function studentTable(reviews: readonly { id?: unknown }[]) {
 
 /** נתוני הדפסה: N הביקורות האחרונות, לתלמידי הביקורת הפתוחה (או האחרונה שנסגרה) */
 export async function printData(kind: string, count: number) {
+  await ensureSequential();
   const sql = await db();
   const reviews = await sql`
     select ${sql.unsafe(REVIEW_COLS)}
@@ -459,6 +483,7 @@ export async function printData(kind: string, count: number) {
 
 /** מסך ראש הישיבה: N הביקורות האחרונות, או כל הביקורות מתחילת הזמן הנוכחי (בבין הזמנים — הזמן האחרון) */
 export async function roshData(sel: number | 'zman') {
+  await ensureSequential();
   const sql = await db();
   let reviews;
   let zman = '';

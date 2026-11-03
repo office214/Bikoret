@@ -459,16 +459,6 @@ const Line = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
 /** מסד התלמידים, ייבוא ההיסטוריה ורצף המספרים */
 function DbSection({ st, reload }: { st: AdminStatus; reload: () => void }) {
   const { toast, dialog } = useUi();
-  const fixNumbers = async () => {
-    const g = st.reviews.gaps;
-    const ok = await dialog({
-      title: 'סידור רצף המספרים', ok: 'סדר',
-      body: <p>כל ביקורת שאחרי מספר חסר תקבל מספר אחד פחות, עד שהרצף רציף (למשל #{g[0] + 1} תהפוך ל-#{g[0]}). סדר הביקורות לא משתנה.</p>,
-    });
-    if (!ok) return;
-    try { const r = await api<{ changed: number }>('/api/admin/renumber', { body: {} }); toast(`הרצף סודר · ${r.changed} ביקורות קיבלו מספר חדש`); reload(); }
-    catch (e) { toast(errMsg(e)); }
-  };
   const importHist = async () => {
     const ok = await dialog({ title: 'ייבוא היסטוריה', body: <p>ייבוא כל הביקורות מגליון &quot;מסד&quot; בקובץ &quot;ביקורת&quot;. ביקורות שכבר יובאו לא ייובאו שוב.</p>, ok: 'ייבא' });
     if (!ok) return;
@@ -483,13 +473,12 @@ function DbSection({ st, reload }: { st: AdminStatus; reload: () => void }) {
       <Line ok={!!st.sheetsEmail}>{st.sheetsEmail ? `מסד התלמידים מחובר דרך ${st.sheetsEmail}` : 'מסד התלמידים עדיין לא מחובר'}</Line>
       <Line ok={st.reviews.imported > 0}>{st.reviews.imported ? `יובאו ${st.reviews.imported} ביקורות מהגיליון הישן` : 'ההיסטוריה עדיין לא יובאה'}</Line>
       <Line ok={!st.reviews.gaps?.length}>
-        {!st.reviews.gaps?.length ? `רצף מספרי הביקורות תקין (עד #${st.reviews.last_number ?? '—'})`
-          : <>חסרים מספרים ברצף: {st.reviews.gaps.slice(0, 10).map((n) => `#${n}`).join(', ')}{st.reviews.gaps.length > 10 ? '…' : ''}</>}
+        {!st.reviews.gaps?.length ? `רצף מספרי הביקורות תקין (עד #${st.reviews.last_number ?? '—'}) — נבדק ומסודר אוטומטית`
+          : <>חסרים מספרים ברצף: {st.reviews.gaps.slice(0, 10).map((n) => `#${n}`).join(', ')} — יסודר אוטומטית בדקה הקרובה</>}
       </Line>
       <div className="actions">
         <a className="btn solid" href="/api/auth/login?connect=1">{st.sheetsEmail ? 'חיבור מחדש למסד' : 'חיבור למסד התלמידים'}</a>
         <AsyncButton className="btn" busyText="מייבא…" onClick={importHist} disabled={!st.sheetsEmail}>ייבוא היסטוריה</AsyncButton>
-        {!!st.reviews.gaps?.length && <AsyncButton className="btn" onClick={fixNumbers}>סדר את הרצף</AsyncButton>}
       </div>
     </>
   );
