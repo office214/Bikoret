@@ -117,7 +117,7 @@ export default function RoshView({ token }: { token: string }) {
                           <td key={j} className="pcol has-note rnote-cell" role="button" tabIndex={0} aria-label={`${st}, יש הערה — לחיצה לקריאה`}
                             onClick={() => openCard({ kind: 'note', id: row.id, name: `${row.last} ${row.first}`, col: j, status: st, note })}
                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard({ kind: 'note', id: row.id, name: `${row.last} ${row.first}`, col: j, status: st, note }); } }}>
-                            {st}<span className="rnote-tag">📝 יש הערה</span>
+                            <span className="rnote-in">{st} – <span className="rnote-tag">הערה</span></span>
                           </td>
                         )
                         : <td key={j} className="pcol">{st}</td>;

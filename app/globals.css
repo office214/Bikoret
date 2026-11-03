@@ -577,10 +577,14 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 /* משבצת עם הערה במסך ראש הישיבה: "חסר" + תגית "יש הערה", לחיצה פותחת את ההערה */
 .rosh-table td.rnote-cell { cursor: pointer; background: #fff3b8; vertical-align: middle; line-height: 1.15; }
 .rosh-table td.rnote-cell:hover, .rosh-table td.rnote-cell:focus-visible { background: #ffe680; outline: none; }
+/* "חסר – הערה": המילה "הערה" ככפתור קטן, בשורה אחת */
+.rnote-in { white-space: nowrap; }
 .rnote-tag {
-  display: block; width: max-content; margin: 2px auto 0; padding: 0 6px; border-radius: 8px;
-  background: #fff; border: 1px solid #d4b64a; color: #6b5200; font-size: .68em; font-weight: 700;
+  display: inline-block; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
+  background: #fff; border: 1px solid #b8962a; color: #5c4700; font-size: .8em; font-weight: 800;
+  box-shadow: 0 1px 0 rgb(0 0 0 / .12);
 }
+.rosh-table td.rnote-cell:hover .rnote-tag, .rosh-table td.rnote-cell:focus-visible .rnote-tag { background: #5c4700; color: #fff3b8; border-color: #5c4700; }
 :root[data-theme="dark"] .rosh-table td.rnote-cell { background: #3a3110; color: #f3d77a; }
 :root[data-theme="dark"] .rnote-tag { background: #2a2208; border-color: #8a7420; color: #f3d77a; }
 @media (prefers-color-scheme: dark) {
