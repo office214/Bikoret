@@ -543,3 +543,4 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .rcard-tabs.fit.counts button { min-height: 58px; flex-direction: column-reverse; gap: 1px; }
 .rcard-tabs.fit.counts button span { font-size: 1.45em; font-weight: 800; color: var(--text); line-height: 1.1; }
 .rcard-tabs.fit.counts button[aria-selected="true"] span { color: inherit; opacity: 1; }
+.rosh-sub.nowrap { white-space: nowrap; margin-top: 2px; }

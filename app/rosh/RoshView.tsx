@@ -128,24 +128,22 @@ export default function RoshView({ token }: { token: string }) {
 
 /* ---------- כרטיס של ביקורת אחת: פרטים + סינון לפי סטטוס ---------- */
 
+// אותן לשוניות כמו בכרטיס התלמיד; כל לשונית היא גם המונה
 const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
-  { key: 'all', label: 'כל החריגים', match: (s) => !!s },
-  { key: 'missing', label: 'חסר / לא ענה', match: (s) => s === 'חסר' || s === 'לא ענה' },
-  { key: 'chaser', label: 'חסר', match: (s) => s === 'חסר' },
-  { key: 'lo', label: 'לא ענה', match: (s) => s === 'לא ענה' },
-  { key: 'nirsham', label: 'נרשם', match: (s) => s === 'נרשם' },
   { key: 'bishuv', label: 'בישוב', match: (s) => s === 'בישוב' },
-  { key: 'mil', label: 'מילואים', match: (s) => s === 'מילואים' },
+  { key: 'missing', label: 'חסר ולא ענה', match: (s) => s === 'חסר' || s === 'לא ענה' },
+  { key: 'nirsham', label: 'נרשם', match: (s) => s === 'נרשם' },
+  { key: 'all', label: 'כל התלמידים', match: () => true },
 ];
 
 function ReviewCard({ data, col, onClose, onStudent }: { data: Data; col: number; onClose: () => void; onStudent: (id: string, name: string) => void }) {
   const r = data.reviews[col];
   const [tab, setTab] = useState('missing');
-  const people = data.rows.map((row) => ({ id: row.id, name: `${row.last} ${row.first}`, s: row.statuses[col], note: row.notes[col] }));
-  const tabs = TABS.map((t) => ({ ...t, n: people.filter((p) => t.match(p.s)).length })).filter((t) => t.n > 0 || t.key === 'all' || t.key === 'missing');
-  const cur = tabs.find((t) => t.key === tab) || tabs[0];
+  // תא ריק בטבלה = נוכח
+  const people = data.rows.map((row) => ({ id: row.id, name: `${row.last} ${row.first}`, s: row.statuses[col] || 'נוכח', note: row.notes[col] }));
+  const tabs = TABS.map((t) => ({ ...t, n: people.filter((p) => t.match(p.s)).length }));
+  const cur = tabs.find((t) => t.key === tab) || tabs[1];
   const list = people.filter((p) => cur.match(p.s));
-  const present = r.total - (r.chaser + r.nirsham + r.bishuv + r.lo_ana);
   useSheet(onClose);
 
   return (
@@ -154,26 +152,24 @@ function ReviewCard({ data, col, onClose, onStudent }: { data: Data; col: number
         <header className="rcard-h">
           <div>
             <h2>ביקורת #{r.number} · {typeLabel(r.type)}</h2>
-            <p className="rosh-sub">{r.date_heb} · {r.time}</p>
+            <p className="rosh-sub">{r.date_heb} · {r.time} · {r.total} תלמידים</p>
+            <p className="rosh-sub nowrap">
+              {r.pct !== null && <>נוכחות <bdi dir="ltr">{pct(r.pct)}</bdi></>}
+              {r.passed !== null && <>{r.pct !== null && ' · '}{r.passed ? <b className="pass">✓ עובר</b> : <b className="fail">✗ נכשל</b>}</>}
+            </p>
           </div>
           <button className="rcard-x" onClick={onClose} aria-label="סגירה">✕</button>
         </header>
-        <div className="rcard-stats">
-          <div><b>{pct(r.pct)}</b><span>נוכחות</span></div>
-          <div>{r.passed === null ? '' : r.passed ? <b className="pass">✓ עובר</b> : <b className="fail">✗ נכשל</b>}<span>תוצאה</span></div>
-          <div><b>{r.total}</b><span>תלמידים</span></div>
-          <div><b>{present}</b><span>נוכחים</span></div>
-        </div>
-        <div className="rcard-tabs" role="tablist">
+        <div className="rcard-tabs fit counts" role="tablist">
           {tabs.map((t) => (
             <button key={t.key} role="tab" aria-selected={cur.key === t.key} onClick={() => setTab(t.key)}>{t.label} <span>{t.n}</span></button>
           ))}
         </div>
-        <ul className="rcard-list">
+        <ul className="rcard-list" key={tab}>
           {list.length ? list.map((p, i) => (
             <li key={i} className={p.note ? 'has-note' : undefined}>
               <button className="nm sname" onClick={() => onStudent(p.id, p.name)}>{p.name}</button>
-              <span className="st">{p.s}</span>
+              <span className={'st' + (p.s === 'נוכח' ? ' ok' : '')}>{p.s}</span>
               {p.note && <span className="nt">{p.note}</span>}
             </li>
           )) : <li className="empty-li">אין תלמידים בקטגוריה הזו</li>}
@@ -225,7 +221,7 @@ function StudentCard({ token, id, name, onClose }: { token: string; id: string; 
               <button role="tab" aria-selected={tab === 'nirsham'} onClick={() => setTab('nirsham')}>נרשם <span>{count((s) => s === 'נרשם')}</span></button>
               <button role="tab" aria-selected={tab === 'all'} onClick={() => setTab('all')}>כל הביקורות <span>{total}</span></button>
             </div>
-            <ul className="rcard-list">
+            <ul className="rcard-list" key={tab}>
               {list.length ? list.map((h) => (
                 <li key={h.id} className={h.note ? 'has-note' : undefined}>
                   <span className="nm">#{h.number} · {h.date_heb} <small className="rosh-sub">{typeLabel(h.type)}</small></span>
