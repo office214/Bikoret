@@ -219,6 +219,33 @@ export async function deleteClosedReview(reviewId: number, user: string) {
   return { number: res.number, renumbered: res.renumbered };
 }
 
+/** מספרים חסרים ברצף הביקורות (בין הראשונה לאחרונה) */
+export async function numberGaps(): Promise<number[]> {
+  const sql = await db();
+  const rows = await sql`
+    select g::int as n from generate_series((select min(number) from reviews), (select max(number) from reviews)) g
+    where not exists (select 1 from reviews where number = g) order by g`;
+  return rows.map((r) => r.n as number);
+}
+
+/** סוגר חורים ברצף: כל ביקורת מקבלת את המספר הבא אחרי זו שלפניה (הסדר נשמר) */
+export async function compactNumbers(user: string) {
+  const sql = await db();
+  const changed = await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(872342)`;
+    const [{ start }] = await tx`select min(number)::int as start from reviews`;
+    if (start === null) return 0;
+    // דרך מספרים שליליים — המספר ייחודי
+    const moved = await tx`
+      with seq as (select id, number, ${start}::int - 1 + row_number() over (order by number) as want from reviews where number is not null)
+      update reviews r set number = -seq.want from seq where r.id = seq.id and seq.number <> seq.want returning r.id`;
+    await tx`update reviews set number = -number where number < 0`;
+    return moved.length;
+  });
+  await audit(user, 'compact-numbers', { changed });
+  return { changed };
+}
+
 export async function discardReview(reviewId: number, user: string) {
   const sql = await db();
   await sql`delete from reviews where id = ${reviewId} and status = 'open'`;

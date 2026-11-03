@@ -269,7 +269,7 @@ function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData;
 
 type AdminStatus = {
   google: boolean; sheetsEmail: string;
-  reviews: { imported: number; closed: number; last_number: number | null };
+  reviews: { imported: number; closed: number; last_number: number | null; gaps: number[] };
   passwords: { user: boolean; admin: boolean };
   sms: { token: string; username: string; source: string; adminPhone: string; ready: boolean; fromEnv: Record<string, boolean>; testPhone: string };
 };
@@ -418,6 +418,16 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
   const { toast, dialog } = useUi();
   const [f, setF] = useState({ token: '', username: '', source: '', adminPhone: '' });
   const [testPhone, setTestPhone] = useState('');
+  const fixNumbers = async () => {
+    const g = st.reviews.gaps;
+    const ok = await dialog({
+      title: 'סידור רצף המספרים', ok: 'סדר',
+      body: <p>כל ביקורת שאחרי מספר חסר תקבל מספר אחד פחות, עד שהרצף רציף (למשל #{g[0] + 1} תהפוך ל-#{g[0]}). סדר הביקורות לא משתנה.</p>,
+    });
+    if (!ok) return;
+    try { const r = await api<{ changed: number }>('/api/admin/renumber', { body: {} }); toast(`הרצף סודר · ${r.changed} ביקורות קיבלו מספר חדש`); reload(); }
+    catch (e) { toast(errMsg(e)); }
+  };
   const setTest = async (on: boolean) => {
     try {
       await api('/api/admin/sms-settings', { body: on ? { testPhone } : { testOff: true } });
@@ -452,6 +462,11 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
       <RoshLink />
       <Line ok={!!st.sheetsEmail}>{st.sheetsEmail ? `מסד התלמידים מחובר דרך ${st.sheetsEmail}` : 'מסד התלמידים עדיין לא מחובר'}</Line>
       <Line ok={st.reviews.imported > 0}>{st.reviews.imported ? `יובאו ${st.reviews.imported} ביקורות מהגיליון הישן` : 'ההיסטוריה עדיין לא יובאה'}</Line>
+      <Line ok={!st.reviews.gaps?.length}>
+        {!st.reviews.gaps?.length ? `רצף מספרי הביקורות תקין (עד #${st.reviews.last_number ?? '—'})`
+          : <>חסרים מספרים ברצף: {st.reviews.gaps.slice(0, 10).map((n) => `#${n}`).join(', ')}{st.reviews.gaps.length > 10 ? '…' : ''}{' '}
+            <AsyncButton className="btn" onClick={fixNumbers}>סדר את הרצף</AsyncButton></>}
+      </Line>
       <Line ok={st.sms.ready}>{st.sms.ready ? `SMS מוגדר (${st.sms.username}, שולח ${st.sms.source})` : 'SMS עדיין לא מוגדר'}</Line>
       <div className="actions">
         <a className="btn solid" href="/api/auth/login?connect=1">{st.sheetsEmail ? 'חיבור מחדש למסד' : 'חיבור למסד התלמידים'}</a>

@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { sheetsConnectedEmail, googleConfigured } from '@/lib/google';
 import { smsSettings } from '@/lib/sms';
 import { getSetting } from '@/lib/secure';
-import { SMS_TEST_KEY } from '@/lib/reviews';
+import { numberGaps, SMS_TEST_KEY } from '@/lib/reviews';
 import { passwordsStatus } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export const GET = handler(async () => {
   return {
     google: googleConfigured(),
     sheetsEmail: await sheetsConnectedEmail(),
-    reviews: counts,
+    reviews: { ...counts, gaps: await numberGaps() },
     passwords: await passwordsStatus(),
     sms: {
       token: mask(s.token), username: s.username, source: s.source, adminPhone: s.adminPhone,
