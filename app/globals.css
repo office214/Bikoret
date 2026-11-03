@@ -544,3 +544,18 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .rcard-tabs.fit.counts button span { font-size: 1.45em; font-weight: 800; color: var(--text); line-height: 1.1; }
 .rcard-tabs.fit.counts button[aria-selected="true"] span { color: inherit; opacity: 1; }
 .rosh-sub.nowrap { white-space: nowrap; margin-top: 2px; }
+
+/* ניהול: תפריט נושאים, וכל נושא במסך משלו */
+.amenu { display: grid; gap: 10px; max-width: 680px; margin: 0 auto 12px; }
+.amenu-item {
+  position: relative; display: grid; gap: 3px; text-align: start; padding: 14px 16px; padding-inline-end: 40px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); cursor: pointer;
+}
+.amenu-item:hover { border-color: var(--line-strong); }
+.amenu-item .t { font-weight: 800; font-size: 1.05em; }
+.amenu-item .s { color: var(--muted); font-size: .85em; }
+.amenu-item .s.warn { color: var(--warn); font-weight: 700; }
+.amenu-item .chev { position: absolute; inset-inline-end: 14px; top: 50%; transform: translateY(-50%); font-size: 1.6em; color: var(--muted); line-height: 1; }
+.asec-head { display: flex; align-items: center; gap: 10px; max-width: 680px; margin: 0 auto 10px; }
+.asec-head h2 { margin: 0; font-size: 1.15em; }
+.asec-back { height: 40px; padding: 0 12px; }

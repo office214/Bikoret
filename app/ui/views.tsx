@@ -373,9 +373,33 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
     try { await api(`/api/review/${r!.id}`, { method: 'DELETE' }); await rv.reload(); toast('הביקורת נמחקה'); } catch (e) { toast(errMsg(e)); }
   };
 
-  return (
+  // ניהול מחולק לנושאים: תפריט כפתורים, וכל נושא נפתח במסך משלו ("חזרה" / כפתור החזור בטלפון חוזרים לתפריט)
+  const [section, setSection] = useState<AdminSection | null>(null);
+  const openSection = (k: AdminSection) => { setSection(k); window.scrollTo(0, 0); try { history.pushState({ adm: k }, ''); } catch {} };
+  const back = () => { if (history.state?.adm) history.back(); else setSection(null); };
+  useEffect(() => {
+    const onPop = () => setSection(null);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const reloadAll = () => { loadStatus(); rv.reload(); };
+
+  const items: { key: AdminSection; title: string; sub: string; warn?: boolean; admin?: boolean }[] = [
+    { key: 'review', title: 'הביקורת הפתוחה', sub: r ? `${typeLabel(r.type)} · ${r.session} · ${counts[NO_ANSWER]} לא ענו — SMS, פרטים וסגירה` : 'אין ביקורת פתוחה' },
+    { key: 'sms', title: 'הודעות SMS', admin: true, sub: !st ? '…' : st.sms.testPhone ? `מצב בדיקה פעיל — רק ל-${st.sms.testPhone}` : st.sms.ready ? `מוגדר (${st.sms.username})` : 'עדיין לא מוגדר', warn: !!st && (!st.sms.ready || !!st.sms.testPhone) },
+    { key: 'rosh', title: 'מסך ראש הישיבה', admin: true, sub: 'קישור קבוע לצפייה בלבד בתוצאות' },
+    { key: 'db', title: 'מסד התלמידים והיסטוריה', admin: true, sub: !st ? '…' : [st.sheetsEmail ? 'מחובר' : 'לא מחובר', st.reviews.gaps?.length ? `חסרים מספרים ברצף` : `רצף תקין עד #${st.reviews.last_number ?? '—'}`].join(' · '), warn: !!st && (!st.sheetsEmail || !!st.reviews.gaps?.length) },
+    { key: 'passwords', title: 'סיסמאות', admin: true, sub: !st ? '…' : st.passwords.user && st.passwords.admin ? 'סיסמת כניסה וסיסמת מנהל מוגדרות' : 'חסרה סיסמה', warn: !!st && !(st.passwords.user && st.passwords.admin) },
+  ];
+  const cur = items.find((i) => i.key === section);
+
+  if (cur) return (
     <>
-      {r && (
+      <div className="asec-head">
+        <button className="btn ghost asec-back" onClick={back}>→ חזרה</button>
+        <h2>{cur.title}</h2>
+      </div>
+      {section === 'review' && (r ? (
         <>
           <div className="card">
             <h2>SMS</h2>
@@ -402,11 +426,25 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
             </div>
           </div>
         </>
-      )}
+      ) : <div className="card"><p className="sub" style={{ margin: 0 }}>אין ביקורת פתוחה. ביקורת חדשה נפתחת ממסך הבית (לשונית ביקורת).</p></div>)}
+      {user.admin && st && section === 'sms' && <div className="card"><SmsSection st={st} reload={reloadAll} /></div>}
+      {user.admin && section === 'rosh' && <div className="card"><RoshLink /></div>}
+      {user.admin && st && section === 'db' && <div className="card"><DbSection st={st} reload={reloadAll} /></div>}
+      {user.admin && st && section === 'passwords' && <div className="card"><Passwords st={st} reload={reloadAll} /></div>}
+    </>
+  );
 
-      {!r && <div className="card"><p className="sub" style={{ margin: 0 }}>אין ביקורת פתוחה. ביקורת חדשה נפתחת ממסך הבית (לשונית ביקורת).</p></div>}
-      {user.admin && st && <Setup st={st} reload={() => { loadStatus(); rv.reload(); }} />}
-
+  return (
+    <>
+      <nav className="amenu" aria-label="נושאי ניהול">
+        {items.filter((i) => !i.admin || user.admin).map((i) => (
+          <button key={i.key} className="amenu-item" onClick={() => openSection(i.key)}>
+            <span className="t">{i.title}</span>
+            <span className={'s' + (i.warn ? ' warn' : '')}>{i.warn ? '⚠ ' : ''}{i.sub}</span>
+            <span className="chev" aria-hidden="true">‹</span>
+          </button>
+        ))}
+      </nav>
       <div className="card">
         <form action="/api/auth/logout" method="post"><button className="btn ghost">יציאה מהמערכת</button></form>
       </div>
@@ -414,10 +452,15 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
   );
 }
 
-function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
+type AdminSection = 'review' | 'sms' | 'rosh' | 'db' | 'passwords';
+
+const Line = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
+  <div className="okline"><span className={'dot ' + (ok ? 'on' : 'off')} aria-hidden="true" /><span>{ok ? '✓' : '⚠'} {children}</span></div>
+);
+
+/** מסד התלמידים, ייבוא ההיסטוריה ורצף המספרים */
+function DbSection({ st, reload }: { st: AdminStatus; reload: () => void }) {
   const { toast, dialog } = useUi();
-  const [f, setF] = useState({ token: '', username: '', source: '', adminPhone: '' });
-  const [testPhone, setTestPhone] = useState('');
   const fixNumbers = async () => {
     const g = st.reviews.gaps;
     const ok = await dialog({
@@ -426,18 +469,6 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
     });
     if (!ok) return;
     try { const r = await api<{ changed: number }>('/api/admin/renumber', { body: {} }); toast(`הרצף סודר · ${r.changed} ביקורות קיבלו מספר חדש`); reload(); }
-    catch (e) { toast(errMsg(e)); }
-  };
-  const setTest = async (on: boolean) => {
-    try {
-      await api('/api/admin/sms-settings', { body: on ? { testPhone } : { testOff: true } });
-      setTestPhone(''); reload();
-      toast(on ? 'מצב בדיקה הופעל — הודעות יישלחו רק למספר הבדיקה' : 'מצב בדיקה כובה — הודעות יישלחו לתלמידים');
-    } catch (e) { toast(errMsg(e)); }
-  };
-
-  const save = async () => {
-    try { await api('/api/admin/sms-settings', { body: f }); setF({ token: '', username: '', source: '', adminPhone: '' }); reload(); toast('ההגדרות נשמרו'); }
     catch (e) { toast(errMsg(e)); }
   };
   const importHist = async () => {
@@ -449,31 +480,43 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
       reload();
     } catch (e) { toast(errMsg(e)); }
   };
-
-  const Line = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
-    <div className="okline"><span className={'dot ' + (ok ? 'on' : 'off')} aria-hidden="true" /><span>{ok ? '✓' : '⚠'} {children}</span></div>
-  );
-
   return (
-    <div className="card">
-      <h2>הגדרות מערכת</h2>
-      <p className="sub">מוצג רק למנהלים.</p>
-      <Passwords st={st} reload={reload} />
-      <RoshLink />
+    <>
       <Line ok={!!st.sheetsEmail}>{st.sheetsEmail ? `מסד התלמידים מחובר דרך ${st.sheetsEmail}` : 'מסד התלמידים עדיין לא מחובר'}</Line>
       <Line ok={st.reviews.imported > 0}>{st.reviews.imported ? `יובאו ${st.reviews.imported} ביקורות מהגיליון הישן` : 'ההיסטוריה עדיין לא יובאה'}</Line>
       <Line ok={!st.reviews.gaps?.length}>
         {!st.reviews.gaps?.length ? `רצף מספרי הביקורות תקין (עד #${st.reviews.last_number ?? '—'})`
-          : <>חסרים מספרים ברצף: {st.reviews.gaps.slice(0, 10).map((n) => `#${n}`).join(', ')}{st.reviews.gaps.length > 10 ? '…' : ''}{' '}
-            <AsyncButton className="btn" onClick={fixNumbers}>סדר את הרצף</AsyncButton></>}
+          : <>חסרים מספרים ברצף: {st.reviews.gaps.slice(0, 10).map((n) => `#${n}`).join(', ')}{st.reviews.gaps.length > 10 ? '…' : ''}</>}
       </Line>
-      <Line ok={st.sms.ready}>{st.sms.ready ? `SMS מוגדר (${st.sms.username}, שולח ${st.sms.source})` : 'SMS עדיין לא מוגדר'}</Line>
       <div className="actions">
         <a className="btn solid" href="/api/auth/login?connect=1">{st.sheetsEmail ? 'חיבור מחדש למסד' : 'חיבור למסד התלמידים'}</a>
         <AsyncButton className="btn" busyText="מייבא…" onClick={importHist} disabled={!st.sheetsEmail}>ייבוא היסטוריה</AsyncButton>
+        {!!st.reviews.gaps?.length && <AsyncButton className="btn" onClick={fixNumbers}>סדר את הרצף</AsyncButton>}
       </div>
+    </>
+  );
+}
 
-      <h3 style={{ margin: '20px 0 4px', fontSize: '1em' }}>הגדרות SMS (019)</h3>
+/** הגדרות SMS (019) ומצב בדיקה */
+function SmsSection({ st, reload }: { st: AdminStatus; reload: () => void }) {
+  const { toast } = useUi();
+  const [f, setF] = useState({ token: '', username: '', source: '', adminPhone: '' });
+  const [testPhone, setTestPhone] = useState('');
+  const setTest = async (on: boolean) => {
+    try {
+      await api('/api/admin/sms-settings', { body: on ? { testPhone } : { testOff: true } });
+      setTestPhone(''); reload();
+      toast(on ? 'מצב בדיקה הופעל — הודעות יישלחו רק למספר הבדיקה' : 'מצב בדיקה כובה — הודעות יישלחו לתלמידים');
+    } catch (e) { toast(errMsg(e)); }
+  };
+  const save = async () => {
+    try { await api('/api/admin/sms-settings', { body: f }); setF({ token: '', username: '', source: '', adminPhone: '' }); reload(); toast('ההגדרות נשמרו'); }
+    catch (e) { toast(errMsg(e)); }
+  };
+  return (
+    <>
+      <Line ok={st.sms.ready}>{st.sms.ready ? `SMS מוגדר (${st.sms.username}, שולח ${st.sms.source})` : 'SMS עדיין לא מוגדר'}</Line>
+      <h3 style={{ margin: '16px 0 4px', fontSize: '1em' }}>הגדרות 019</h3>
       <p className="sub">נשמר מוצפן במסד הנתונים. שדה ריק לא משנה את הערך הקיים. הטוקן לא מוצג בחזרה.</p>
       <div className="grid">
         <label className="f">טוקן<input type="password" autoComplete="off" placeholder={st.sms.token ? `מוגדר (${st.sms.token})` : 'לא מוגדר'} value={f.token} onChange={(e) => setF({ ...f, token: e.target.value })} disabled={st.sms.fromEnv.token} /></label>
@@ -489,7 +532,7 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
         </AsyncButton>
       </div>
 
-      <h3 style={{ margin: '20px 0 4px', fontSize: '1em' }}>מצב בדיקת SMS</h3>
+      <h3 style={{ margin: '20px 0 4px', fontSize: '1em' }}>מצב בדיקה</h3>
       <p className="sub">כשמצב הבדיקה פעיל, כל שליחה (התחלה / לא ענו) שולחת הודעה לדוגמה אחת לכל נוסח — רק למספר הבדיקה. תלמידים לא מקבלים כלום.</p>
       {st.sms.testPhone ? (
         <>
@@ -502,7 +545,7 @@ function Setup({ st, reload }: { st: AdminStatus; reload: () => void }) {
           <div className="f" style={{ justifyContent: 'flex-end' }}><AsyncButton className="btn solid" disabled={!testPhone.trim()} onClick={() => setTest(true)}>הפעל מצב בדיקה</AsyncButton></div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -524,7 +567,6 @@ function RoshLink() {
   };
   return (
     <div style={{ marginBottom: 18 }}>
-      <h3 style={{ margin: '4px 0', fontSize: '1em' }}>מסך ראש הישיבה</h3>
       <p className="sub">קישור קבוע לצפייה בלבד בתוצאות הביקורות (בלי סיסמה, ובלי אפשרות לשנות כלום). מי שיש לו את הקישור — רואה.</p>
       {url === null ? <p className="sub">טוען…</p> : url ? (
         <>
@@ -565,7 +607,6 @@ function Passwords({ st, reload }: { st: AdminStatus; reload: () => void }) {
   );
   return (
     <div style={{ marginBottom: 18 }}>
-      <h3 style={{ margin: '4px 0', fontSize: '1em' }}>סיסמאות כניסה</h3>
       <p className="sub">סיסמת כניסה — לכל מי שעושה ביקורות. סיסמת מנהל — נותנת גם גישה להגדרות, SMS ומחיקת ביקורות. שתיהן לפחות 6 תווים.</p>
       <Line ok={st.passwords.user}>{st.passwords.user ? 'סיסמת כניסה מוגדרת' : 'סיסמת כניסה עוד לא הוגדרה — אף אחד לא יכול להיכנס עם סיסמה'}</Line>
       <Line ok={st.passwords.admin}>{st.passwords.admin ? 'סיסמת מנהל מוגדרת' : 'סיסמת מנהל עוד לא הוגדרה'}</Line>
