@@ -369,13 +369,28 @@ export async function searchStudents(q: string) {
     limit 30`;
 }
 
+/**
+ * כל הביקורות של תלמיד, מהחדשה לישנה.
+ * בגיליון הישן תא של נוכח נשאר ריק, ולכן בביקורות המיובאות אין שורה למי שנכח.
+ * ביקורת מיובאת בלי שורה, שנמצאת בין הביקורת הראשונה לאחרונה שבהן התלמיד מופיע — נחשבת "נוכח"
+ * (מחוץ לטווח הזה אי אפשר לדעת אם כבר/עוד למד בישיבה). בביקורות מהאפליקציה לכל תלמיד ברשימה יש שורה.
+ */
 export async function studentHistory(studentId: string) {
   const sql = await db();
-  return sql`
+  const id = normId(studentId);
+  const rows = await sql`
     select r.id, r.number, r.date_heb, r.time, r.type, r.imported, e.status, e.note, e.last_name, e.first_name
     from entries e join reviews r on r.id = e.review_id
-    where e.student_id = ${normId(studentId)} and r.status = 'closed'
+    where e.student_id = ${id} and r.status = 'closed' and r.number is not null
     order by r.number desc`;
+  if (!rows.length) return rows;
+  const nums = rows.map((r) => r.number as number);
+  const gaps = await sql`
+    select id, number, date_heb, time, type, imported from reviews r
+    where status = 'closed' and imported and number between ${Math.min(...nums)} and ${Math.max(...nums)}
+      and not exists (select 1 from entries e where e.review_id = r.id and e.student_id = ${id})`;
+  const filled = gaps.map((g) => ({ ...g, number: g.number as number, status: 'נוכח', note: '', inferred: true, last_name: rows[0].last_name, first_name: rows[0].first_name }));
+  return [...rows.map((r) => ({ ...r, number: r.number as number })), ...filled].sort((a, b) => b.number - a.number);
 }
 
 const REVIEW_COLS = 'id, number, date_heb, time, type, total, chaser, nirsham, bishuv, lo_ana, pct::float as pct, passed';

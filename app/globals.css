@@ -528,3 +528,10 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .rcard-list .nm small { font-weight: 500; }
 .rcard-list .sname { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; text-align: start; }
 .rcard-list .sname:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+/* כרטיסי ראש הישיבה: הלשוניות נכנסות ברוחב טלפון */
+.rcard-tabs { gap: 5px; }
+.rcard-tabs button { padding: 0 9px; font-size: .8em; }
+/* כרטיס תלמיד: ארבע לשוניות בשורה אחת, המספר מתחת לשם */
+.rcard-tabs.fit { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
+.rcard-tabs.fit button { height: auto; min-height: 46px; padding: 4px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; white-space: normal; }
+.rcard-tabs.fit button span { margin: 0; font-size: .95em; }
