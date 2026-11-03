@@ -45,13 +45,14 @@ export function HistoryView({ admin }: { admin: boolean }) {
     if (action !== 'delete') return;
     const ok = await dialog({
       title: `מחיקת ביקורת #${r.number}`, ok: 'מחק לצמיתות',
-      body: <p><Warn />הביקורת מ-{r.date_heb} ({r.total} תלמידים) ותוצאותיה יימחקו לצמיתות. אי אפשר לבטל.</p>,
+      body: <><p><Warn />הביקורת מ-{r.date_heb} ({r.total} תלמידים) ותוצאותיה יימחקו לצמיתות. אי אפשר לבטל.</p>
+        <p className="sub">הביקורות שאחריה יקבלו מספר אחד פחות, כדי שהרצף יישמר (למשל #{r.number + 1} תהפוך ל-#{r.number}).</p></>,
     });
     if (!ok) return;
     try {
-      await api(`/api/history/${r.id}`, { method: 'DELETE' });
-      setRows((prev) => prev && prev.filter((x) => x.id !== r.id));
-      toast(`ביקורת #${r.number} נמחקה`);
+      const res = await api<{ renumbered: number }>(`/api/history/${r.id}`, { method: 'DELETE' });
+      setRows(await api<HistRow[]>('/api/history')); // המספרים של הביקורות שאחריה השתנו
+      toast(`ביקורת #${r.number} נמחקה` + (res.renumbered ? ` · ${res.renumbered} ביקורות מוספרו מחדש` : ''));
     } catch (e) { toast(errMsg(e)); }
   };
 

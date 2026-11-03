@@ -200,11 +200,23 @@ export async function saveMeta(reviewId: number, meta: Meta, resync: 'apply' | '
 /** מחיקת ביקורת סגורה מהתוצאות (מנהלים בלבד). המספר שלה יתפנה אם היא האחרונה. */
 export async function deleteClosedReview(reviewId: number, user: string) {
   const sql = await db();
-  const [r] = await sql`delete from reviews where id = ${reviewId} and status = 'closed' returning number, date_heb, total`;
-  if (!r) throw new HttpError(404, 'הביקורת לא נמצאה');
-  await sql`delete from sms_log where review_id = ${reviewId}`;
-  await audit(user, 'delete-closed', { reviewId, number: r.number, date: r.date_heb, total: r.total });
-  return { number: r.number };
+  const res = await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(872342)`; // אותה נעילה כמו סגירת ביקורת — מספור רציף
+    const [r] = await tx`delete from reviews where id = ${reviewId} and status = 'closed' returning number, date_heb, total`;
+    if (!r) throw new HttpError(404, 'הביקורת לא נמצאה');
+    await tx`delete from sms_log where review_id = ${reviewId}`;
+    // הביקורות שאחריה יורדות במספר אחד, כדי שהרצף יישמר (166 ← 165 וכו').
+    // בשני שלבים דרך מספרים שליליים, כי המספר ייחודי ועדכון ישיר עלול להתנגש באמצע.
+    let renumbered = 0;
+    if (r.number !== null) {
+      const moved = await tx`update reviews set number = -(number - 1) where number > ${r.number} returning id`;
+      await tx`update reviews set number = -number where number < 0`;
+      renumbered = moved.length;
+    }
+    return { number: r.number as number | null, date_heb: r.date_heb as string, total: r.total as number, renumbered };
+  });
+  await audit(user, 'delete-closed', { reviewId, number: res.number, date: res.date_heb, total: res.total, renumbered: res.renumbered });
+  return { number: res.number, renumbered: res.renumbered };
 }
 
 export async function discardReview(reviewId: number, user: string) {
@@ -379,7 +391,7 @@ async function studentTable(reviews: readonly { id?: unknown }[]) {
   const map = new Map<string, { s: string; n: string }>();
   marks.forEach((m) => map.set(`${m.review_id}:${m.student_id}`, { s: m.status === 'נוכח' ? '' : m.status, n: m.note || '' }));
   return people.map((p) => ({
-    last: p.last_name as string, first: p.first_name as string,
+    id: p.student_id as string, last: p.last_name as string, first: p.first_name as string,
     statuses: reviews.map((r) => map.get(`${r.id}:${p.student_id}`)?.s || ''),
     notes: reviews.map((r) => map.get(`${r.id}:${p.student_id}`)?.n || ''),
   }));
