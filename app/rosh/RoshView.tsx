@@ -7,7 +7,8 @@ type Review = {
   chaser: number; nirsham: number; bishuv: number; lo_ana: number; pct: number | null; passed: boolean | null;
 };
 type Data = { reviews: Review[]; rows: { id: string; last: string; first: string; statuses: string[]; notes: string[] }[]; zman: string };
-type Card = { kind: 'review'; col: number } | { kind: 'student'; id: string; name: string };
+type Card = { kind: 'review'; col: number } | { kind: 'student'; id: string; name: string }
+  | { kind: 'note'; id: string; name: string; col: number; status: string; note: string };
 type Sel = number | 'zman';
 
 const typeLabel = (t: string) => t.replace(/^חיצונית/, 'אמת').replace(/^פנימית$/, 'פנימית');
@@ -111,7 +112,14 @@ export default function RoshView({ token }: { token: string }) {
                     {row.statuses.map((st, j) => {
                       const note = row.notes[j];
                       return note
-                        ? <td key={j} className="pcol has-note" title={note}><span className={'pnote ' + (note.length <= 16 ? 'n1' : note.length <= 40 ? 'n2' : 'n3')}>{note}</span></td>
+                        ? (
+                          // הערה: הסטטוס + "יש הערה"; לחיצה על המשבצת פותחת את ההערה המלאה
+                          <td key={j} className="pcol has-note rnote-cell" role="button" tabIndex={0} aria-label={`${st}, יש הערה — לחיצה לקריאה`}
+                            onClick={() => openCard({ kind: 'note', id: row.id, name: `${row.last} ${row.first}`, col: j, status: st, note })}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard({ kind: 'note', id: row.id, name: `${row.last} ${row.first}`, col: j, status: st, note }); } }}>
+                            {st}<span className="rnote-tag">📝 יש הערה</span>
+                          </td>
+                        )
                         : <td key={j} className="pcol">{st}</td>;
                     })}
                   </tr>
@@ -122,6 +130,10 @@ export default function RoshView({ token }: { token: string }) {
         )}
       {data && card?.kind === 'review' && data.reviews[card.col] && <ReviewCard data={data} col={card.col} onClose={closeReview} onStudent={(id, name) => openCard({ kind: 'student', id, name })} />}
       {card?.kind === 'student' && <StudentCard token={token} id={card.id} name={card.name} onClose={closeReview} />}
+      {data && card?.kind === 'note' && data.reviews[card.col] && (
+        <NoteCard card={card} review={data.reviews[card.col]} onClose={closeReview}
+          onStudent={() => setCard({ kind: 'student', id: card.id, name: card.name })} />
+      )}
     </div>
   );
 }
@@ -245,4 +257,27 @@ function useSheet(onClose: () => void) {
     document.body.style.overflow = 'hidden';
     return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
   }, [onClose]);
+}
+
+/* ---------- חלון קטן: ההערה המלאה של משבצת ---------- */
+
+function NoteCard({ card, review, onClose, onStudent }: {
+  card: { name: string; status: string; note: string }; review: Review; onClose: () => void; onStudent: () => void;
+}) {
+  useSheet(onClose);
+  return (
+    <div className="rcard-bg center" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <section className="rnote" role="dialog" aria-modal="true" aria-label={`הערה — ${card.name}`}>
+        <header className="rcard-h">
+          <div>
+            <h2>{card.name}</h2>
+            <p className="rosh-sub">ביקורת #{review.number} · {review.date_heb} · {review.time} · {card.status}</p>
+          </div>
+          <button className="rcard-x" onClick={onClose} aria-label="סגירה">✕</button>
+        </header>
+        <p className="rnote-text">{card.note}</p>
+        <div className="rnote-actions"><button className="btn" onClick={onStudent}>להיסטוריה של התלמיד</button></div>
+      </section>
+    </div>
+  );
 }
