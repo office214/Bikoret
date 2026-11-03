@@ -445,9 +445,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
           </button>
         ))}
       </nav>
-      <div className="card">
-        <form action="/api/auth/logout" method="post"><button className="btn ghost">יציאה מהמערכת</button></form>
-      </div>
+      <form className="amenu-logout" action="/api/auth/logout" method="post"><button className="btn logout">יציאה מהמערכת</button></form>
     </>
   );
 }

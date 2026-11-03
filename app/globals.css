@@ -559,3 +559,8 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .asec-head { display: flex; align-items: center; gap: 10px; max-width: 680px; margin: 0 auto 10px; }
 .asec-head h2 { margin: 0; font-size: 1.15em; }
 .asec-back { height: 40px; padding: 0 12px; }
+/* יציאה מהמערכת — אדום, לרוחב המסך */
+.amenu-logout { max-width: 680px; margin: 4px auto 12px; }
+.btn.logout { width: 100%; background: var(--warn); border-color: var(--warn); color: #fff; }
+:root[data-theme="dark"] .btn.logout { color: #1a0b0b; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.logout { color: #1a0b0b; } }
