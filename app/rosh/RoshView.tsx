@@ -190,7 +190,7 @@ type Hist = { id: number; number: number; date_heb: string; time: string; type: 
 function StudentCard({ token, id, name, onClose }: { token: string; id: string; name: string; onClose: () => void }) {
   const [hist, setHist] = useState<Hist | null>(null);
   const [err, setErr] = useState('');
-  const [tab, setTab] = useState<'ex' | 'all'>('ex');
+  const [tab, setTab] = useState<'chaser' | 'lo' | 'all'>('chaser');
   useEffect(() => {
     fetch(`/api/rosh/${token}/student?id=${encodeURIComponent(id)}`, { cache: 'no-store' })
       .then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error || 'שגיאה'); setHist(j); })
@@ -201,13 +201,13 @@ function StudentCard({ token, id, name, onClose }: { token: string; id: string; 
   const count = (f: (s: string) => boolean) => (hist || []).filter((h) => f(h.status)).length;
   const present = count((s) => s === 'נוכח' || s === 'מילואים');
   const total = hist?.length || 0;
-  const list = (hist || []).filter((h) => tab === 'all' || (h.status !== 'נוכח' && h.status !== 'מילואים'));
+  const list = (hist || []).filter((h) => tab === 'all' || h.status === (tab === 'chaser' ? 'חסר' : 'לא ענה'));
 
   return (
     <div className="rcard-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <section className="rcard" role="dialog" aria-modal="true" aria-label={name}>
+      <section className="rcard" role="dialog" aria-modal="true" aria-label={`${name} — היסטוריה`}>
         <header className="rcard-h">
-          <div><h2>{name}</h2><p className="rosh-sub">{hist ? `${total} ביקורות במערכת` : '…'}</p></div>
+          <div><h2>{name} — היסטוריה</h2><p className="rosh-sub">{hist ? `${total} ביקורות במערכת` : '…'}</p></div>
           <button className="rcard-x" onClick={onClose} aria-label="סגירה">✕</button>
         </header>
         {err ? <p className="empty">{err}</p> : !hist ? <p className="loading">טוען…</p> : (
@@ -219,7 +219,8 @@ function StudentCard({ token, id, name, onClose }: { token: string; id: string; 
               <div><b>{count((s) => s === 'נרשם' || s === 'בישוב')}</b><span>נרשם / בישוב</span></div>
             </div>
             <div className="rcard-tabs" role="tablist">
-              <button role="tab" aria-selected={tab === 'ex'} onClick={() => setTab('ex')}>חריגים <span>{total - present}</span></button>
+              <button role="tab" aria-selected={tab === 'chaser'} onClick={() => setTab('chaser')}>חסר <span>{count((s) => s === 'חסר')}</span></button>
+              <button role="tab" aria-selected={tab === 'lo'} onClick={() => setTab('lo')}>לא ענה <span>{count((s) => s === 'לא ענה')}</span></button>
               <button role="tab" aria-selected={tab === 'all'} onClick={() => setTab('all')}>כל הביקורות <span>{total}</span></button>
             </div>
             <ul className="rcard-list">
@@ -229,7 +230,7 @@ function StudentCard({ token, id, name, onClose }: { token: string; id: string; 
                   <span className={'st' + (h.status === 'נוכח' ? ' ok' : '')}>{h.status}</span>
                   {h.note && <span className="nt">{h.note}</span>}
                 </li>
-              )) : <li className="empty-li">{tab === 'ex' ? 'נכח בכל הביקורות' : 'אין ביקורות'}</li>}
+              )) : <li className="empty-li">{tab === 'chaser' ? 'לא היה חסר באף ביקורת' : tab === 'lo' ? 'ענה בכל הביקורות' : 'אין ביקורות'}</li>}
             </ul>
           </>
         )}
