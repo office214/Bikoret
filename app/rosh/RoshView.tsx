@@ -29,6 +29,16 @@ export default function RoshView({ token }: { token: string }) {
     setReady(true);
   }, []);
   const [data, setData] = useState<Data | null>(null);
+  const [openCol, setOpenCol] = useState<number | null>(null);
+
+  // כרטיס ביקורת: "חזור" בטלפון סוגר אותו (ולא יוצא מהמסך)
+  const openReview = (j: number) => { setOpenCol(j); try { history.pushState({ rv: 1 }, ''); } catch {} };
+  const closeReview = () => { if (history.state?.rv) history.back(); else setOpenCol(null); };
+  useEffect(() => {
+    const onPop = () => setOpenCol(null);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [err, setErr] = useState('');
 
   const load = useCallback(async (s: Sel) => {
@@ -67,6 +77,7 @@ export default function RoshView({ token }: { token: string }) {
           {sel === 'zman'
             ? (data ? `${data.zman || 'הזמן'} · ${n} ביקורות` : '…')
             : sel === 1 ? 'הביקורת האחרונה' : `${sel} הביקורות האחרונות`}
+          {n > 0 && ' · לחצו על ביקורת לפרטים'}
         </p>
       </header>
 
@@ -77,8 +88,16 @@ export default function RoshView({ token }: { token: string }) {
           <div className="rosh-scroll">
             <table className="ptable rosh-table">
               <thead className="psum">
-                {SUMMARY.map(([label, get]) => (
-                  <tr key={label}><th className="pname">{label}</th>{data.reviews.map((r) => <th key={r.id} className="pcol">{get(r)}</th>)}</tr>
+                {SUMMARY.map(([label, get], li) => (
+                  <tr key={label}>
+                    <th className="pname">{label}</th>
+                    {data.reviews.map((r, j) => (
+                      <th key={r.id} className="pcol rcol" onClick={() => openReview(j)}
+                        {...(li === 0 ? { role: 'button', tabIndex: 0, 'aria-label': `פרטי ביקורת ${r.number}`, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReview(j); } } } : {})}>
+                        {li === 0 ? <span className="rlink">{get(r)}</span> : get(r)}
+                      </th>
+                    ))}
+                  </tr>
                 ))}
               </thead>
               <tbody>
@@ -97,6 +116,70 @@ export default function RoshView({ token }: { token: string }) {
             </table>
           </div>
         )}
+      {data && openCol !== null && data.reviews[openCol] && <ReviewCard data={data} col={openCol} onClose={closeReview} />}
+    </div>
+  );
+}
+
+/* ---------- כרטיס של ביקורת אחת: פרטים + סינון לפי סטטוס ---------- */
+
+const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
+  { key: 'all', label: 'כל החריגים', match: (s) => !!s },
+  { key: 'missing', label: 'חסר / לא ענה', match: (s) => s === 'חסר' || s === 'לא ענה' },
+  { key: 'chaser', label: 'חסר', match: (s) => s === 'חסר' },
+  { key: 'lo', label: 'לא ענה', match: (s) => s === 'לא ענה' },
+  { key: 'nirsham', label: 'נרשם', match: (s) => s === 'נרשם' },
+  { key: 'bishuv', label: 'בישוב', match: (s) => s === 'בישוב' },
+  { key: 'mil', label: 'מילואים', match: (s) => s === 'מילואים' },
+];
+
+function ReviewCard({ data, col, onClose }: { data: Data; col: number; onClose: () => void }) {
+  const r = data.reviews[col];
+  const [tab, setTab] = useState('missing');
+  const people = data.rows.map((row) => ({ name: `${row.last} ${row.first}`, s: row.statuses[col], note: row.notes[col] }));
+  const tabs = TABS.map((t) => ({ ...t, n: people.filter((p) => t.match(p.s)).length })).filter((t) => t.n > 0 || t.key === 'all' || t.key === 'missing');
+  const cur = tabs.find((t) => t.key === tab) || tabs[0];
+  const list = people.filter((p) => cur.match(p.s));
+  const present = r.total - (r.chaser + r.nirsham + r.bishuv + r.lo_ana);
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', esc);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
+  }, [onClose]);
+
+  return (
+    <div className="rcard-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <section className="rcard" role="dialog" aria-modal="true" aria-label={`ביקורת ${r.number}`}>
+        <header className="rcard-h">
+          <div>
+            <h2>ביקורת #{r.number} · {typeLabel(r.type)}</h2>
+            <p className="rosh-sub">{r.date_heb} · {r.time}</p>
+          </div>
+          <button className="rcard-x" onClick={onClose} aria-label="סגירה">✕</button>
+        </header>
+        <div className="rcard-stats">
+          <div><b>{pct(r.pct)}</b><span>נוכחות</span></div>
+          <div>{r.passed === null ? '' : r.passed ? <b className="pass">✓ עובר</b> : <b className="fail">✗ נכשל</b>}<span>תוצאה</span></div>
+          <div><b>{r.total}</b><span>תלמידים</span></div>
+          <div><b>{present}</b><span>נוכחים</span></div>
+        </div>
+        <div className="rcard-tabs" role="tablist">
+          {tabs.map((t) => (
+            <button key={t.key} role="tab" aria-selected={cur.key === t.key} onClick={() => setTab(t.key)}>{t.label} <span>{t.n}</span></button>
+          ))}
+        </div>
+        <ul className="rcard-list">
+          {list.length ? list.map((p, i) => (
+            <li key={i} className={p.note ? 'has-note' : undefined}>
+              <span className="nm">{p.name}</span>
+              <span className="st">{p.s}</span>
+              {p.note && <span className="nt">{p.note}</span>}
+            </li>
+          )) : <li className="empty-li">אין תלמידים בקטגוריה הזו</li>}
+        </ul>
+      </section>
     </div>
   );
 }

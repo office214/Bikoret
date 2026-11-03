@@ -482,3 +482,43 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .rosh-table { border-collapse: separate; border-spacing: 0; border-top: 1px solid var(--line); border-inline-end: 1px solid var(--line); }
 .rosh-table th, .rosh-table td { border: 0; border-bottom: 1px solid var(--line); border-inline-start: 1px solid var(--line); }
 .rosh-table .psum tr:last-child th { border-bottom: 2px solid var(--text); }
+
+/* כרטיס ביקורת במסך ראש הישיבה */
+.rosh-table th.rcol { cursor: pointer; }
+.rosh-table th.rcol:hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
+.rlink { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.rcard-bg { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / .35); display: flex; align-items: flex-end; justify-content: center; }
+.rcard {
+  width: min(560px, 100%); max-height: 88dvh; display: flex; flex-direction: column; background: var(--surface); color: var(--text);
+  border-radius: 18px 18px 0 0; box-shadow: 0 -8px 30px rgb(0 0 0 / .25); animation: rcard-in .18s ease-out;
+}
+@media (min-width: 720px) { .rcard-bg { align-items: center; } .rcard { border-radius: 18px; } }
+@keyframes rcard-in { from { transform: translateY(24px); opacity: .5; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rcard { animation: none; } }
+.rcard-h { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px 8px; }
+.rcard-h > div { flex: 1; }
+.rcard-h h2 { margin: 0; font-size: 1.1em; }
+.rcard-x { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font-size: 16px; cursor: pointer; }
+.rcard-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 16px 10px; }
+.rcard-stats div { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border-radius: 10px; background: var(--surface-2); }
+.rcard-stats b { font-size: 1.05em; }
+.rcard-stats span { font-size: .72em; color: var(--muted); }
+.rcard-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
+.rcard-tabs::-webkit-scrollbar { display: none; }
+.rcard-tabs button {
+  flex: none; height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--text); font-weight: 700; font-size: .85em; cursor: pointer; white-space: nowrap;
+}
+.rcard-tabs button span { color: var(--muted); font-weight: 600; margin-inline-start: 2px; }
+.rcard-tabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.rcard-tabs button[aria-selected="true"] span { color: inherit; opacity: .8; }
+.rcard-list { list-style: none; margin: 0; padding: 0 16px 16px; overflow-y: auto; border-top: 1px solid var(--line); }
+.rcard-list li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.rcard-list .nm { font-weight: 700; }
+.rcard-list .st { color: var(--muted); font-size: .9em; }
+.rcard-list .nt { grid-column: 1 / -1; justify-self: start; padding: 1px 8px; border-radius: 6px; background: #fff4c2; color: #6b5200; font-size: .85em; font-weight: 600; }
+:root[data-theme="dark"] .rcard-list .nt { background: #3a3110; color: #f3d77a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rcard-list .nt { background: #3a3110; color: #f3d77a; } }
+.rcard-list .empty-li { display: block; color: var(--muted); text-align: center; border: 0; padding: 24px 0; }
+.rcard-h, .rcard-stats, .rcard-tabs { flex: none; } /* רק הרשימה נגללת */
+.rcard-list { flex: 1; min-height: 0; }
