@@ -564,3 +564,12 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .btn.logout { width: 100%; background: var(--warn); border-color: var(--warn); color: #fff; }
 :root[data-theme="dark"] .btn.logout { color: #1a0b0b; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.logout { color: #1a0b0b; } }
+
+/* מסך ראש הישיבה: כותרת ובורר ממורכזים; "מתחילת הזמן" אחרי ה-10 (בטלפון צר — בשורה שמתחת) */
+.rosh-top { text-align: center; }
+.rosh-top .rosh-sel { margin-inline: auto; }
+.rosh-sel button.z { order: 0; grid-column: 1 / -1; }
+@media (min-width: 560px) {
+  .rosh-sel { grid-template-columns: repeat(10, minmax(0, 1fr)) auto; max-width: 640px; }
+  .rosh-sel button.z { grid-column: auto; height: 36px; padding: 0 14px; white-space: nowrap; }
+}
