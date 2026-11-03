@@ -535,3 +535,7 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .rcard-tabs.fit { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
 .rcard-tabs.fit button { height: auto; min-height: 46px; padding: 4px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; white-space: normal; }
 .rcard-tabs.fit button span { margin: 0; font-size: .95em; }
+/* גובה קבוע לכרטיס — לא "קופץ" כשעוברים בין לשוניות; רשימה קצרה נשארת למעלה, ארוכה נגללת בפנים */
+.rcard { height: 88dvh; max-height: 88dvh; }
+@media (min-width: 720px) { .rcard { height: min(80vh, 720px); max-height: min(80vh, 720px); } }
+.rcard-list { align-content: start; }
