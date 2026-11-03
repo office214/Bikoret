@@ -85,6 +85,15 @@ create table if not exists app_settings (
   updated_by text
 );
 
+-- מחשבים/דפדפנים של ראש הישיבה שביקשו לקבל התראות (Web Push)
+create table if not exists push_subs (
+  endpoint   text primary key,
+  p256dh     text not null,
+  auth       text not null,
+  ua         text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists audit_log (
   id         serial primary key,
   at         timestamptz not null default now(),

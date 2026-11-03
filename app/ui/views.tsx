@@ -361,6 +361,20 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       await rv.waitSaved();
       const res = await api<{ number: number; pct: string; passed: boolean }>(`/api/review/${r.id}/close`, { body: meta });
       toast(`ביקורת #${res.number} נשמרה — ${pctText(Number(res.pct))} · ${res.passed ? 'עובר' : 'נכשל'}`);
+      // התראה לראש הישיבה — רק באישור (ביקורות ניסיון לא שולחים)
+      const { devices } = await api<{ devices: number }>(`/api/review/${r.id}/notify`).catch(() => ({ devices: 0 }));
+      if (devices > 0) {
+        const send = await dialog({
+          title: 'לשלוח התראה לראש הישיבה?', ok: 'שלח התראה', cancel: 'לא, זו ביקורת ניסיון',
+          body: <p>תקפוץ אצלו התראה במחשב: <b>ביקורת #{res.number} נסגרה — {pctText(Number(res.pct))} · {res.passed ? 'עובר' : 'נכשל'}</b>. היא נשארת על המסך עד שהוא סוגר אותה.</p>,
+        });
+        if (send) {
+          try {
+            const n = await api<{ sent: number; failed: number }>(`/api/review/${r.id}/notify`, { body: {} });
+            toast(n.sent ? 'ההתראה נשלחה לראש הישיבה' : 'ההתראה לא נשלחה — ייתכן שההרשמה במחשב שלו פגה');
+          } catch (e) { toast(errMsg(e)); }
+        }
+      }
       await rv.reload();
       loadStatus();
       goReview();
