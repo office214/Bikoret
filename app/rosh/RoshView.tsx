@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PushToggle } from '../ui/push';
 import { WhenDialog } from '../ui/when';
+import { PrintReport, REPORTS, type PrintData } from '../ui/printReport';
 
 type Review = {
   id: number; number: number; date_heb: string; time: string; type: string; total: number;
@@ -10,7 +11,7 @@ type Review = {
 };
 type Data = { reviews: Review[]; rows: { id: string; last: string; first: string; statuses: string[]; notes: string[] }[]; zman: string };
 type Card = { kind: 'review'; col: number } | { kind: 'student'; id: string; name: string }
-  | { kind: 'note'; id: string; name: string; col: number; status: string; note: string };
+  | { kind: 'note'; id: string; name: string; col: number; status: string; note: string } | { kind: 'print' };
 type Sel = number | 'zman';
 
 const typeLabel = (t: string) => t.replace(/^חיצונית/, 'אמת').replace(/^פנימית$/, 'פנימית');
@@ -90,6 +91,7 @@ export default function RoshView({ token }: { token: string }) {
           <PushToggle api={`/api/rosh/${token}/push`} onLabel="התראות פעילות במחשב הזה" offLabel="הפעלת התראות במחשב הזה"
             testMsg="נשלחה התראת בדיקה — היא אמורה להופיע בפינת המסך" onRefresh={() => { load(sel); reqs.reload(); }} />
           <button className="rreq-btn" onClick={() => setAsk({ mode: 'create' })}><CalIcon /> בקשה לבצע ביקורת</button>
+          <button className="rreq-btn" onClick={() => openCard({ kind: 'print' })}><PrintIcon /> הדפסה</button>
         </div>
         <RequestsStrip reqs={reqs} onPick={(r) => setAsk({ mode: 'repropose', req: r })} />
       </header>
@@ -153,6 +155,7 @@ export default function RoshView({ token }: { token: string }) {
             reqs.flash('הבקשה נשלחה למזכירות');
           }} />
       )}
+      {card?.kind === 'print' && <PrintCard token={token} initial={typeof sel === 'number' ? sel : 3} onClose={closeReview} />}
       {card?.kind === 'student' && <StudentCard token={token} id={card.id} name={card.name} onClose={closeReview} />}
       {data && card?.kind === 'note' && data.reviews[card.col] && (
         <NoteCard card={card} review={data.reviews[card.col]} onClose={closeReview}
@@ -381,5 +384,70 @@ function RequestsStrip({ reqs, onPick }: { reqs: ReturnType<typeof useRoshReques
       ))}
       {reqs.msg && <p className="rreq-msg" role="status">{reqs.msg}</p>}
     </div>
+  );
+}
+
+/* ---------- הדפסה — אותם דוחות כמו בהדפסה של המזכירות ---------- */
+
+function PrintIcon() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>;
+}
+
+function PrintCard({ token, initial, onClose }: { token: string; initial: number; onClose: () => void }) {
+  const [kinds, setKinds] = useState<string[]>(REPORTS.map((r) => r.kind));
+  const allOn = kinds.length === REPORTS.length;
+  const toggleKind = (k: string) => setKinds((cur) => REPORTS.map((r) => r.kind).filter((x) => (x === k ? !cur.includes(x) : cur.includes(x))));
+  const [count, setCount] = useState(Math.min(Math.max(initial, 1), 10));
+  const [data, setData] = useState<PrintData | null>(null);
+  const [err, setErr] = useState('');
+  useSheet(onClose);
+
+  useEffect(() => {
+    setData(null); setErr('');
+    fetch(`/api/rosh/${token}?n=${count}`, { cache: 'no-store' })
+      .then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error || 'שגיאה'); setData(j); })
+      .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+  }, [token, count]);
+
+  const landscape = count > 4;
+  const ready = !!data?.reviews.length && kinds.length > 0;
+
+  return (
+    <>
+      <div className="rcard-bg center" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <section className="rnote rprint" role="dialog" aria-modal="true" aria-label="הדפסה">
+          <header className="rcard-h">
+            <div>
+              <h2>הדפסה</h2>
+              <p className="rosh-sub">כמו ההדפסה של המזכירות{landscape ? ' · יודפס לרוחב הדף' : ''}</p>
+            </div>
+            <button className="rcard-x" onClick={onClose} aria-label="סגירה">✕</button>
+          </header>
+          <div className="rprint-b">
+            <fieldset className="kinds">
+              <legend>דוחות להדפסה</legend>
+              <label className="chk chk-all"><input type="checkbox" checked={allOn} onChange={() => setKinds(allOn ? [] : REPORTS.map((r) => r.kind))} /> הכל</label>
+              {REPORTS.map((r) => (
+                <label key={r.kind} className="chk"><input type="checkbox" checked={kinds.includes(r.kind)} onChange={() => toggleKind(r.kind)} /> {r.label}</label>
+              ))}
+            </fieldset>
+            <label className="rprint-n">מספר ביקורות
+              <select value={count} onChange={(e) => setCount(Number(e.target.value))}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}</select>
+            </label>
+            {err && <p className="when-err">{err}</p>}
+            {data && !data.reviews.length && <p className="when-err">אין ביקורות סגורות.</p>}
+          </div>
+          <div className="rnote-actions">
+            <button className="btn solid" onClick={() => window.print()} disabled={!ready}>{data ? 'הדפס' : 'טוען…'}</button>
+            <button className="btn ghost" onClick={onClose}>ביטול</button>
+          </div>
+        </section>
+      </div>
+      {/* הדוחות עצמם — מוסתרים במסך ומופיעים רק בהדפסה */}
+      {landscape && <style>{'@media print { @page { size: A4 landscape; } }'}</style>}
+      <div id="printArea" className="rosh-print">
+        {ready && REPORTS.filter((r) => kinds.includes(r.kind)).map((r) => <PrintReport key={r.kind} kind={r.kind} data={data!} landscape={landscape} />)}
+      </div>
+    </>
   );
 }

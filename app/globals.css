@@ -682,3 +682,16 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
   :root:not([data-theme="light"]) .req.pending { background: #3a3110; color: #f3d77a; border-color: #8a7420; }
   :root:not([data-theme="light"]) .req.pending .req-t { color: #e0c463; }
 }
+
+/* הדפסה ממסך ראש הישיבה: הדוחות מוסתרים במסך, ובהדפסה רק הם מופיעים */
+.rosh-print { display: none; }
+.rprint-b { display: grid; gap: 12px; padding: 4px 16px 0; }
+.rprint-b fieldset.kinds { width: 100%; display: flex; }
+.rprint-b .chk { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+.rprint-n { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.rprint-n select { height: 38px; min-width: 70px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-weight: 800; }
+@media print {
+  .rosh > :not(.rosh-print) { display: none !important; }
+  .rosh-print { display: block; }
+  .rosh-print .ptable { margin: 0 auto; }
+}
