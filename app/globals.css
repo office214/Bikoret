@@ -451,6 +451,10 @@ body:has(.list-wrap.has-alpha) .fbar-host .fbar { margin-inline-end: 30px; paddi
 .pswatch { display: inline-block; width: 1.1em; height: .8em; vertical-align: -1px; background: #fff3b8; border: 1px solid #c9b25a; }
 @media print {
   .ptable .pcol { width: 7.6em; } /* עמודות קצת רחבות יותר בהדפסה — מקום להערות בלי להגביה שורות */
+  /* 8–10 ביקורות לרוחב הדף: עמודות צרות יותר והתאריך יכול לרדת שורה, כדי שהטבלה תיכנס בלי להיחתך */
+  .ptable.wide { font-size: 11.5px; }
+  .ptable.wide .pcol { width: 6.6em; padding-inline: 3px; }
+  .ptable.wide .psum th.pcol { white-space: normal; line-height: 1.15; }
   .ptable td.pcol.has-note { background: #fff3b8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pswatch { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .plegend { color: #444; }

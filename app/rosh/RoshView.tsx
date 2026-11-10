@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PushToggle } from '../ui/push';
 import { WhenDialog } from '../ui/when';
-import { PrintReport, REPORTS, type PrintData } from '../ui/printReport';
+import { COUNT_OPTIONS, isLandscape, parseCount, PrintReport, REPORTS, type PrintCount, type PrintData } from '../ui/printReport';
 
 type Review = {
   id: number; number: number; date_heb: string; time: string; type: string; total: number;
@@ -155,7 +155,7 @@ export default function RoshView({ token }: { token: string }) {
             reqs.flash('הבקשה נשלחה למזכירות');
           }} />
       )}
-      {card?.kind === 'print' && <PrintCard token={token} initial={typeof sel === 'number' ? sel : 3} onClose={closeReview} />}
+      {card?.kind === 'print' && <PrintCard token={token} initial={sel} onClose={closeReview} />}
       {card?.kind === 'student' && <StudentCard token={token} id={card.id} name={card.name} onClose={closeReview} />}
       {data && card?.kind === 'note' && data.reviews[card.col] && (
         <NoteCard card={card} review={data.reviews[card.col]} onClose={closeReview}
@@ -393,11 +393,11 @@ function PrintIcon() {
   return <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>;
 }
 
-function PrintCard({ token, initial, onClose }: { token: string; initial: number; onClose: () => void }) {
+function PrintCard({ token, initial, onClose }: { token: string; initial: PrintCount; onClose: () => void }) {
   const [kinds, setKinds] = useState<string[]>(REPORTS.map((r) => r.kind));
   const allOn = kinds.length === REPORTS.length;
   const toggleKind = (k: string) => setKinds((cur) => REPORTS.map((r) => r.kind).filter((x) => (x === k ? !cur.includes(x) : cur.includes(x))));
-  const [count, setCount] = useState(Math.min(Math.max(initial, 1), 10));
+  const [count, setCount] = useState<PrintCount>(initial === 'zman' ? 'zman' : Math.min(Math.max(initial, 1), 10));
   const [data, setData] = useState<PrintData | null>(null);
   const [err, setErr] = useState('');
   useSheet(onClose);
@@ -409,8 +409,9 @@ function PrintCard({ token, initial, onClose }: { token: string; initial: number
       .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
   }, [token, count]);
 
-  const landscape = count > 4;
+  const landscape = isLandscape(count, data);
   const ready = !!data?.reviews.length && kinds.length > 0;
+  const many = count === 'zman' && (data?.reviews.length || 0) > 10;
 
   return (
     <>
@@ -432,10 +433,13 @@ function PrintCard({ token, initial, onClose }: { token: string; initial: number
               ))}
             </fieldset>
             <label className="rprint-n">מספר ביקורות
-              <select value={count} onChange={(e) => setCount(Number(e.target.value))}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}</select>
+              <select value={String(count)} onChange={(e) => setCount(parseCount(e.target.value))}>{COUNT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
             </label>
+            {count === 'zman' && data && data.reviews.length > 0 && (
+              <p className="rosh-sub">{data.zman || 'הזמן'}: {data.reviews.length} ביקורות{many ? ' — הטבלה תודפס בכמה חלקים של עד 10 ביקורות' : ''}</p>
+            )}
             {err && <p className="when-err">{err}</p>}
-            {data && !data.reviews.length && <p className="when-err">אין ביקורות סגורות.</p>}
+            {data && !data.reviews.length && <p className="when-err">{count === 'zman' ? 'עוד לא נערכו ביקורות בזמן הזה.' : 'אין ביקורות סגורות.'}</p>}
           </div>
           <div className="rnote-actions">
             <button className="btn solid" onClick={() => window.print()} disabled={!ready}>{data ? 'הדפס' : 'טוען…'}</button>

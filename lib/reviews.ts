@@ -462,15 +462,18 @@ async function studentTable(reviews: readonly { id?: unknown }[]) {
   }));
 }
 
-/** נתוני הדפסה: N הביקורות האחרונות, לתלמידי הביקורת הפתוחה (או האחרונה שנסגרה) */
-export async function printData(kind: string, count: number) {
+/** נתוני הדפסה: N הביקורות האחרונות (או כל ביקורות הזמן), לתלמידי הביקורת הפתוחה (או האחרונה שנסגרה) */
+export async function printData(kind: string, count: number | 'zman') {
   await ensureSequential();
   const sql = await db();
-  const reviews = await sql`
-    select ${sql.unsafe(REVIEW_COLS)}
-    from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(count, 1), 10)}`;
-  if (!reviews.length) return { reviews: [], rows: [] };
-  if (kind === 'cover') return { reviews, rows: [] };
+  const { reviews, zman } = count === 'zman' ? await zmanReviews() : {
+    zman: '',
+    reviews: await sql`
+      select ${sql.unsafe(REVIEW_COLS)}
+      from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(count || 3, 1), 10)}`,
+  };
+  if (!reviews.length) return { reviews: [], rows: [], zman };
+  if (kind === 'cover') return { reviews, rows: [], zman };
   const rows = (await studentTable(reviews)).filter((row) => {
     const s = row.statuses[0];
     if (kind === 'missing') return s === 'חסר' || s === 'לא ענה';
@@ -478,7 +481,23 @@ export async function printData(kind: string, count: number) {
     if (kind === 'nirsham') return s === 'נרשם';
     return true;
   });
-  return { reviews, rows };
+  return { reviews, rows, zman };
+}
+
+/** כל הביקורות שנסגרו בזמן הנוכחי (בבין הזמנים — הזמן האחרון), מהחדשה לישנה */
+async function zmanReviews() {
+  const sql = await db();
+  const z = currentZman();
+  const all = await sql`select ${sql.unsafe(REVIEW_COLS)} from reviews where status = 'closed' order by number`;
+  // שנה חסרה (ביקורות ישנות מהגיליון) — לוקחים מהביקורת שלפניה
+  let lastYear: number | null = null;
+  const inZman = all.filter((r) => {
+    const d = parseHebDate(r.date_heb);
+    if (!d) return false;
+    if (d.year === null) d.year = lastYear; else lastYear = d.year;
+    return sameZman(zmanOf(d), z);
+  });
+  return { reviews: inZman.reverse(), zman: z ? zmanLabel(z) : '' };
 }
 
 /** מסך ראש הישיבה: N הביקורות האחרונות, או כל הביקורות מתחילת הזמן הנוכחי (בבין הזמנים — הזמן האחרון) */
@@ -488,18 +507,7 @@ export async function roshData(sel: number | 'zman') {
   let reviews;
   let zman = '';
   if (sel === 'zman') {
-    const z = currentZman();
-    const all = await sql`select ${sql.unsafe(REVIEW_COLS)} from reviews where status = 'closed' order by number`;
-    // שנה חסרה (ביקורות ישנות מהגיליון) — לוקחים מהביקורת שלפניה
-    let lastYear: number | null = null;
-    const inZman = all.filter((r) => {
-      const d = parseHebDate(r.date_heb);
-      if (!d) return false;
-      if (d.year === null) d.year = lastYear; else lastYear = d.year;
-      return sameZman(zmanOf(d), z);
-    });
-    reviews = inZman.reverse();
-    zman = z ? zmanLabel(z) : '';
+    ({ reviews, zman } = await zmanReviews());
   } else {
     reviews = await sql`select ${sql.unsafe(REVIEW_COLS)} from reviews where status = 'closed' order by number desc limit ${Math.min(Math.max(sel, 1), 10)}`;
   }

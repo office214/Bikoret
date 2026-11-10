@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, AsyncButton, errMsg, NO_ANSWER, pctText, Result, STATUSES, TYPES, typeLabel, useUi, Warn } from './kit';
 import type { ReviewState } from './App';
 import { openWhatsApp, useSms } from './useSms';
-import { PrintReport, REPORTS, type PrintData } from './printReport';
+import { COUNT_OPTIONS, isLandscape, parseCount, PrintReport, REPORTS, type PrintCount, type PrintData } from './printReport';
 import { PushToggle } from './push';
 import { ADMIN_PUSH } from './requests';
 
@@ -152,7 +152,7 @@ export function PrintView() {
   const [kinds, setKinds] = useState<string[]>(REPORTS.map((r) => r.kind));
   const allOn = kinds.length === REPORTS.length;
   const toggleKind = (k: string) => setKinds((cur) => REPORTS.map((r) => r.kind).filter((x) => (x === k ? !cur.includes(x) : cur.includes(x))));
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState<PrintCount>(3);
   const [data, setData] = useState<PrintData | null>(null);
   const [err, setErr] = useState('');
 
@@ -162,14 +162,15 @@ export function PrintView() {
     api<PrintData>(`/api/print?kind=all&count=${count}`).then(setData).catch((e) => setErr(errMsg(e)));
   }, [count]);
 
-  const landscape = count > 4;
+  const landscape = isLandscape(count, data);
+  const zmanInfo = count === 'zman' && data ? ` ${data.zman || 'הזמן'}: ${data.reviews.length} ביקורות${data.reviews.length > 10 ? ' — הטבלה תודפס בכמה חלקים של עד 10 ביקורות' : ''}.` : '';
 
   return (
     <>
       {landscape && <style>{'@media print { @page { size: A4 landscape; } }'}</style>}
       <div className="card no-print">
         <h2>הדפסה</h2>
-        <p className="sub">תלמידי הביקורת הנוכחית, לפי הביקורות האחרונות שנסגרו.{landscape ? ' יודפס לרוחב הדף.' : ''}</p>
+        <p className="sub">תלמידי הביקורת הנוכחית, לפי הביקורות האחרונות שנסגרו.{zmanInfo}{landscape ? ' יודפס לרוחב הדף.' : ''}</p>
         <div className="grid">
           <fieldset className="f kinds">
             <legend>דוחות להדפסה</legend>
@@ -179,13 +180,13 @@ export function PrintView() {
             ))}
           </fieldset>
           <label className="f">מספר ביקורות
-            <select value={count} onChange={(e) => setCount(Number(e.target.value))}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}</select>
+            <select value={String(count)} onChange={(e) => setCount(parseCount(e.target.value))}>{COUNT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
           </label>
         </div>
         <div className="actions"><button className="btn solid" onClick={() => window.print()} disabled={!data?.reviews.length || !kinds.length}>הדפס</button></div>
       </div>
       <div id="printArea">
-        {err ? <div className="empty">{err}</div> : !data ? <div className="loading">טוען…</div> : !data.reviews.length ? <div className="empty">אין ביקורות סגורות.</div> : (
+        {err ? <div className="empty">{err}</div> : !data ? <div className="loading">טוען…</div> : !data.reviews.length ? <div className="empty">{count === 'zman' ? 'עוד לא נערכו ביקורות בזמן הזה.' : 'אין ביקורות סגורות.'}</div> : (
           REPORTS.filter((r) => kinds.includes(r.kind)).map((r) => <PrintReport key={r.kind} kind={r.kind} data={data} landscape={landscape} />)
         )}
       </div>
