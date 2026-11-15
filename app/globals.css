@@ -74,18 +74,6 @@ header.top { position: sticky; top: 0; z-index: 20; background: var(--head); bor
 /* מונים */
 .tools { max-width: 1100px; margin: 0 auto; padding: 0 16px 8px; }
 .bar .ibtn { width: 38px; height: 38px; }
-.stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
-.stat {
-  border: 0; border-inline-start: 1px solid var(--line); background: var(--surface); padding: 3px 2px; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; min-height: 38px; justify-content: center;
-}
-.stat:first-child { border-inline-start: 0; }
-.stat .n { font-size: 1.1em; white-space: nowrap; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.stat .l { font-size: .7em; line-height: 1.15; color: var(--muted); font-weight: 600; }
-.stat[aria-pressed="true"] { background: var(--sel-bg); color: var(--sel-text); box-shadow: inset 0 -3px 0 var(--sel-line); }
-.stat[aria-pressed="true"] .l { color: inherit; opacity: .85; }
-.stat.warn .n { color: var(--warn); }
-.stat.warn[aria-pressed="true"] .n { color: inherit; }
 .row2 { display: flex; gap: 8px; margin-top: 4px; }
 .row2 .search, .row2 .btn { height: 36px; }
 .search {
@@ -317,28 +305,31 @@ label.f .pw input, .pw input { width: 100%; padding-inline-end: 46px; }
 }
 @media (prefers-reduced-motion: reduce) { .letter .done-ic { animation: none; } }
 
-/* אחוז נוכחות — סמן בצורת חץ (פינות מעוגלות) שנע מימין (0%) לשמאל (100%); קצה החץ מצביע על האחוז */
-.att { position: relative; height: 22px; margin-top: 5px; }
+/* אחוז נוכחות — ראש חץ שנע מימין (0%) לשמאל (100%); הקצה מצביע על האחוז והמספר צמוד אליו מאחור.
+   המסלול מתחיל אחרי מקום שמור למספר, כך שגם ב-0% הקצה מדויק */
+.att { --lead: 44px; position: relative; height: 22px; margin-top: 5px; }
+.att-in { position: absolute; inset-block: 0; inset-inline: var(--lead) 0; }
 .att-track { position: absolute; inset-inline: 0; top: 50%; height: 4px; margin-top: -2px; border-radius: 2px; background: var(--line); }
 .att-track i { display: block; height: 100%; border-radius: 2px; background: #9aa4b2; transition: width .5s ease, background .4s; }
-.att-goal { position: absolute; top: -4px; inset-inline-start: 85%; width: 2px; height: 12px; border-radius: 1px; background: var(--ok); opacity: .6; }
+.att-goal { position: absolute; top: 5px; inset-inline-start: 85%; width: 2px; height: 12px; border-radius: 1px; background: var(--ok); opacity: .6; }
 .att-dot {
-  --w: 32px; --tip: 9px;
-  position: absolute; top: 1px; inset-inline-start: clamp(0px, calc(var(--p) - var(--w) - var(--tip)), calc(100% - var(--w) - var(--tip)));
-  width: var(--w); height: 20px; border-radius: 6px; display: grid; place-items: center; isolation: isolate;
-  font-size: 10px; font-weight: 800; color: #fff; background: #7b8696; font-variant-numeric: tabular-nums;
-  filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / .22)); transition: inset-inline-start .5s ease, background .4s, color .4s;
+  position: absolute; top: 0; height: 22px; inset-inline-start: var(--p); transform: translateX(100%);
+  display: flex; flex-direction: row-reverse; align-items: center; gap: 1px;
+  transition: inset-inline-start .5s ease; transform-origin: left center;
 }
-/* קצה החץ: ריבוע מסובב עם פינות מעוגלות — חד מספיק כדי להצביע, בלי להיות דוקר */
-.att-dot::before {
-  content: ''; position: absolute; z-index: -1; top: 3px; inset-inline-end: -6px; width: 14px; height: 14px;
-  border-radius: 3px; background: inherit; transform: rotate(45deg); transition: background .4s;
+.att-dot svg { width: 22px; height: 20px; flex: none; overflow: visible; filter: drop-shadow(0 1px 1px rgb(0 0 0 / .25)); }
+.att-dot path { fill: #7b8696; stroke: #7b8696; stroke-width: 2.4; stroke-linejoin: round; transition: fill .4s, stroke .4s; }
+.att-dot b {
+  font-size: 11px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1;
+  background: var(--head); padding: 2px 3px; border-radius: 4px; transition: color .4s;
 }
+.att.pass .att-dot path { fill: var(--ok); stroke: var(--ok); }
+.att.pass .att-dot b { color: var(--ok); }
 .att.pass .att-track i { background: var(--ok); }
-.att.pass .att-dot { background: var(--ok); color: var(--on-ok); animation: att-pop .5s cubic-bezier(.3, 1.6, .5, 1); }
+.att.pass .att-dot svg { animation: att-pop .5s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes att-pop { 0% { transform: scale(1); } 50% { transform: scale(1.35); } 100% { transform: scale(1); } }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 60; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .att-dot, .att-track i { transition: none; } .att.pass .att-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .att-dot, .att-track i { transition: none; } .att.pass .att-dot svg { animation: none; } }
 
 
 /* דוחות הדפסה — טבלה צרה ונוחה לקריאה: כותרות ושמות על אפור (שמות מודגשים), סטטוסים על לבן */
@@ -686,3 +677,24 @@ fieldset.kinds legend { padding: 0 4px; }
   .rosh-print { display: block; }
   .rosh-print .ptable { margin: 0 auto; }
 }
+
+/* שורת הסינון — בתחתית הכותרת הקבועה, מיושרת בדיוק לעמודות הסטטוס שברשימה ("הכל" מעל השמות) */
+.fbar-host { border-top: 1px solid var(--head-line); background: var(--bg); }
+.stu.fbar { padding-top: 5px; padding-bottom: 5px; background: transparent; }
+body:has(.list-wrap.has-alpha) .stu.fbar { padding-inline-end: 8px; margin-inline-end: 44px; }
+@media (min-width: 720px) { .fbar-wrap { max-width: 660px; margin: 0 auto; } }
+.fbar .seg button, .fbar .fall {
+  height: 38px; border-radius: 19px; border: 1.5px dashed var(--line-strong); background: var(--surface); color: var(--muted);
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 2px; cursor: pointer;
+}
+.fbar .fall { flex-direction: row; gap: 5px; padding: 0 12px; font: inherit; }
+.fbar .n { font-size: 14px; font-weight: 800; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.fbar .l { font-size: 10px; font-weight: 600; line-height: 1.1; white-space: nowrap; }
+.fbar .fall .l { font-size: 12px; }
+.fbar .seg button.na .n { color: var(--warn); }
+.fbar .seg button.na small { font-size: 9px; margin-inline-end: 1px; }
+.fbar .seg button[aria-pressed="true"], .fbar .fall[aria-pressed="true"] {
+  border-style: solid; background: var(--sel-bg); border-color: var(--sel-line); box-shadow: inset 0 0 0 1px var(--sel-line); color: var(--sel-text);
+}
+.fbar .seg button.na[aria-pressed="true"] { background: var(--na-bg); border-color: var(--na-line); box-shadow: inset 0 0 0 1px var(--na-line); color: var(--na-text); }
+.fbar [aria-pressed="true"] .n { color: inherit; }

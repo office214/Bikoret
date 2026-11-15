@@ -243,14 +243,6 @@ function Shell({ user }: { user: User }) {
         </div>
         {tab === 'review' && r && (
           <div className="tools">
-            <div className="stats" role="group" aria-label="סינון לפי סטטוס">
-              {(['all', ...STATUSES] as const).map((s) => (
-                <button key={s} className={'stat' + (s === NO_ANSWER ? ' warn' : '')} aria-pressed={s === 'all' ? filter.size === 0 : filter.has(s)} onClick={() => (s === 'all' ? clearFilter() : toggleFilter(s))}>
-                  <span className="n">{s === NO_ANSWER && counts[s] ? <small aria-hidden="true">⚠ </small> : ''}{counts[s]}</span>
-                  <span className="l">{s === 'all' ? 'הכל' : s}</span>
-                </button>
-              ))}
-            </div>
             <AttendanceTrack reviewId={r.id} present={counts['נוכח'] + counts['בישוב']} total={counts.all} loaded={rv.loaded} />
             <div className="row2">
               <label className="sr-only" htmlFor="search">חיפוש תלמיד</label>
@@ -258,6 +250,29 @@ function Shell({ user }: { user: User }) {
                 value={query} onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }} />
               <NoAnswerButton rv={rv} count={counts[NO_ANSWER]} />
+            </div>
+          </div>
+        )}
+        {tab === 'review' && r && (
+          // כפתורי הסינון (עם הכמות בכל סטטוס) — כל כפתור בדיוק מעל עמודת הסטטוס שלו, ו"הכל" מעל השמות
+          <div className="fbar-host">
+            <div className="fbar-wrap">
+              <div className="stu fbar" role="group" aria-label="סינון לפי סטטוס">
+                <div className="stu-name">
+                  <button className="fall" aria-pressed={filter.size === 0} onClick={clearFilter}>
+                    <span className="n">{counts.all}</span><span className="l">הכל</span>
+                  </button>
+                </div>
+                <div className="seg">
+                  {STATUSES.map((s) => (
+                    <button key={s} className={s === NO_ANSWER ? 'na' : undefined} aria-pressed={filter.has(s)} onClick={() => toggleFilter(s)}
+                      aria-label={`${s}: ${counts[s]}`}>
+                      <span className="n">{s === NO_ANSWER && counts[s] ? <small aria-hidden="true">⚠</small> : null}{counts[s]}</span>
+                      <span className="l">{s}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -650,8 +665,16 @@ function AttendanceTrack({ reviewId, present, total, loaded }: { reviewId: numbe
 
   return (
     <div className={'att' + (passed ? ' pass' : '')} role="img" aria-label={`אחוז נוכחות ${pct}%${passed ? ' — עובר' : ''}`}>
-      <div className="att-track"><i style={{ width: `${ratio * 100}%` }} /><b className="att-goal" /></div>
-      <span className="att-dot" style={{ '--p': `${ratio * 100}%` } as React.CSSProperties}>{pct}%</span>
+      {/* הקו לכל הרוחב; האחוזים נמדדים בתוך .att-in (שמשאיר מימין מקום למספר) */}
+      <div className="att-track"><i style={{ width: `calc(var(--lead) + (100% - var(--lead)) * ${ratio})` }} /></div>
+      <div className="att-in">
+      <b className="att-goal" />
+      <span className="att-dot" style={{ '--p': `${ratio * 100}%` } as React.CSSProperties}>
+        {/* ראש חץ (משולש עם חריץ בבסיס) שהקצה שלו מצביע על האחוז; המספר צמוד אליו מאחור */}
+        <svg viewBox="-2 -2 26 22" aria-hidden="true"><path d="M0 9 L22 0 L16 9 L22 18 Z" /></svg>
+        <b>{pct}%</b>
+      </span>
+      </div>
       {burst > 0 && <Confetti key={burst} />}
     </div>
   );
