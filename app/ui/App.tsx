@@ -261,21 +261,6 @@ function Shell({ user }: { user: User }) {
             </div>
           </div>
         )}
-        {tab === 'review' && r && (
-          // שורת סינון מעל עמודות הסטטוס — חלק מהכותרת הקבועה, כך שהיא לא זזה בגלילה
-          <div className="fbar-host">
-            <div className="stu fbar" role="group" aria-label="סינון תצוגה לפי סטטוס">
-              <div className="stu-name">
-                {filter.size ? <button className="fbar-clear" onClick={clearFilter}>הצג הכל</button> : <span className="fbar-l">הצג רק:</span>}
-              </div>
-              <div className="seg">
-                {STATUSES.map((s) => (
-                  <button key={s} aria-pressed={filter.has(s)} className={s === NO_ANSWER ? 'na' : undefined} onClick={() => toggleFilter(s)}>{s}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </header>
 
       <main>
