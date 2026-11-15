@@ -6,6 +6,7 @@ import { AdminView, HistoryView, PrintView } from './views';
 import { useSms } from './useSms';
 import { typeLabel } from './kit';
 import { LockGate } from './lock';
+import { useSoftOverscroll } from './overscroll';
 import { RequestsBar } from './requests';
 
 type User = { email: string; name: string; admin: boolean };
@@ -219,6 +220,7 @@ function Shell({ user }: { user: User }) {
   };
 
   const r = rv.review;
+  useSoftOverscroll();
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const el = headerRef.current;

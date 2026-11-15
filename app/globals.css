@@ -47,6 +47,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+/* הקפיצה המובנית של הטלפון בקצה הגלילה מבוטלת — במקומה קפיצה עדינה (app/ui/overscroll.ts) */
+html, body { overscroll-behavior-y: none; }
 body {
   background: var(--bg); color: var(--text); font-size: var(--fs); line-height: 1.45;
   font-family: var(--font-heebo), "Segoe UI", Arial, sans-serif; -webkit-font-smoothing: antialiased;
