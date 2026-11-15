@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api, AsyncButton, columnOf, errMsg, Icon, MILUIM, NO_ANSWER, STATUSES, UiProvider, useUi, Warn, type Status } from './kit';
 import { AdminView, HistoryView, PrintView } from './views';
 import { useSms } from './useSms';
@@ -617,8 +618,12 @@ function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, nu
     flash(l);
   };
 
-  if (letters.length < 4) return null;
-  return (
+  // הפס מוצג ישירות תחת body (portal): <main> זז בקפיצה העדינה בקצה הגלילה (transform),
+  // ורכיב fixed שנמצא בתוכו היה נמדד לפי <main> במקום לפי המסך — והאותיות היו מתפזרות
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (letters.length < 4 || !mounted) return null;
+  return createPortal(
     <>
       <div ref={bar} className={'alpha' + (active ? ' active' : '')} aria-hidden="true"
         onPointerDown={(e) => { setActive(true); e.currentTarget.setPointerCapture(e.pointerId); pick(e.clientY); }}
@@ -627,7 +632,8 @@ function AlphaIndex({ letters, left }: { letters: string[]; left: Map<string, nu
         {letters.map((l) => <span key={l} className={left.get(l) ? 'left' : 'done'}>{l}</span>)}
       </div>
       <div className={'bubble' + (bubble ? ' show' : '')} aria-hidden="true">{bubble}</div>
-    </>
+    </>,
+    document.body,
   );
 }
 
