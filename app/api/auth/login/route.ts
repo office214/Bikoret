@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   if (!googleConfigured()) {
-    return NextResponse.redirect(new URL('/login?error=setup', req.url));
+    return NextResponse.redirect(new URL('/?error=setup', req.url));
   }
   const connect = new URL(req.url).searchParams.get('connect') === '1';
   const state = randomBytes(16).toString('hex');

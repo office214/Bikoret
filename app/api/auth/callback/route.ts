@@ -8,7 +8,7 @@ import { audit } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 function fail(req: Request, code: string) {
-  const res = NextResponse.redirect(new URL(`/login?error=${code}`, req.url));
+  const res = NextResponse.redirect(new URL(`/?error=${code}`, req.url));
   res.cookies.delete('bk_oauth');
   return res;
 }

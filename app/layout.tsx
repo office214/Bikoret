@@ -7,7 +7,6 @@ const heebo = Heebo({ subsets: ['hebrew', 'latin'], weight: ['400', '500', '700'
 export const metadata: Metadata = {
   title: 'ביקורת נוכחות',
   description: 'ביקורת נוכחות — ישיבה גבוהה',
-  robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: 'ביקורת' },
 };
 

@@ -9,7 +9,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
   return {
     title: 'ביקורות — ראש הישיבה',
-    robots: { index: false, follow: false },
     manifest: `/api/rosh/${token}/manifest`,
     referrer: 'no-referrer',
   };

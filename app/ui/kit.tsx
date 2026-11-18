@@ -17,7 +17,7 @@ export async function api<T = unknown>(path: string, init?: { method?: string; b
     cache: 'no-store',
   });
   if (res.status === 401) {
-    window.location.href = '/login';
+    window.location.href = '/';
     throw new ApiError(401, 'יש להתחבר מחדש');
   }
   const json = await res.json().catch(() => ({}));

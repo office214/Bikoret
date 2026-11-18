@@ -536,7 +536,7 @@ function Passwords({ st, reload }: { st: AdminStatus; reload: () => void }) {
       await api('/api/admin/passwords', { body: { role, password: pw[role] } });
       setPw({ ...pw, [role]: '' }); reload();
       toast(`${label} נשמרה`);
-      if (role === 'admin') window.location.href = '/login';
+      if (role === 'admin') window.location.href = '/';
     } catch (e) { toast(errMsg(e)); }
   };
   const Line = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (

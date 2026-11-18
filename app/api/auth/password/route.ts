@@ -4,7 +4,7 @@ import { audit } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-const back = (req: Request, error: string) => NextResponse.redirect(new URL(`/login?error=${error}`, req.url), 303);
+const back = (req: Request, error: string) => NextResponse.redirect(new URL(`/?error=${error}`, req.url), 303);
 
 export async function POST(req: Request) {
   const form = await req.formData().catch(() => null);

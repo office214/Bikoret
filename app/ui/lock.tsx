@@ -16,19 +16,21 @@ export function markOpened() {
   try { sessionStorage.setItem(KEY, '1'); sessionStorage.removeItem(HIDDEN_KEY); } catch {}
 }
 
-function lock() {
+/** ניתוק: מוחק את עוגיית הכניסה. מסך הכניסה מוצג במקום, בלי לעבור לכתובת אחרת */
+async function logout() {
   try { sessionStorage.removeItem(KEY); sessionStorage.removeItem(HIDDEN_KEY); } catch {}
-  fetch('/api/auth/logout', { method: 'POST', redirect: 'manual' }).finally(() => window.location.replace('/login'));
+  await fetch('/api/auth/logout', { method: 'POST', redirect: 'manual' }).catch(() => {});
 }
 
 export function LockGate({ children }: { children: ReactNode }) {
-  const [ok, setOk] = useState(false);
+  const [state, setState] = useState<'wait' | 'ok' | 'locked'>('wait');
 
   useEffect(() => {
+    const lock = () => logout().then(() => setState('locked'));
     let opened = false;
     try { opened = sessionStorage.getItem(KEY) === '1'; } catch {}
     if (!opened) { lock(); return; }
-    setOk(true);
+    setState('ok');
     const onVis = () => {
       try {
         if (document.visibilityState === 'hidden') { sessionStorage.setItem(HIDDEN_KEY, String(Date.now())); return; }
@@ -41,7 +43,8 @@ export function LockGate({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
-  return ok ? <>{children}</> : null;
+  if (state === 'locked') return <div className="login"><LoginForm /></div>;
+  return state === 'ok' ? <>{children}</> : null;
 }
 
 const NAME_KEY = 'bk_name';
