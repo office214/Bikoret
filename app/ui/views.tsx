@@ -291,18 +291,27 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       const res = await api<{ number: number; pct: string; passed: boolean }>(`/api/review/${r.id}/close`, { body: meta });
       toast(`ביקורת #${res.number} נשמרה — ${pctText(Number(res.pct))} · ${res.passed ? 'עובר' : 'נכשל'}`);
       // התראה לראש הישיבה — רק באישור (ביקורות ניסיון לא שולחים)
-      const { devices } = await api<{ devices: number }>(`/api/review/${r.id}/notify`).catch(() => ({ devices: 0 }));
-      if (devices > 0) {
-        const send = await dialog({
+      type Wa = { text: string; recipients: { name: string; phone: string }[] };
+      const info = await api<{ devices: number; wa: Wa | null }>(`/api/review/${r.id}/notify`).catch(() => ({ devices: 0, wa: null }));
+      let update = true; // כשאין מחשב רשום — שואלים ישר על וואטסאפ (שם אפשר לענות "לא")
+      if (info.devices > 0) {
+        update = !!(await dialog({
           title: 'לשלוח התראה לראש הישיבה?', ok: 'שלח התראה', cancel: 'לא, זו ביקורת ניסיון',
           body: <p>תקפוץ אצלו התראה במחשב: <b>ביקורת #{res.number} נסגרה — {pctText(Number(res.pct))} · {res.passed ? 'עובר' : 'נכשל'}</b>. היא נשארת על המסך עד שהוא סוגר אותה.</p>,
-        });
-        if (send) {
+        }));
+        if (update) {
           try {
             const n = await api<{ sent: number; failed: number }>(`/api/review/${r.id}/notify`, { body: {} });
             toast(n.sent ? 'ההתראה נשלחה לראש הישיבה' : 'ההתראה לא נשלחה — ייתכן שההרשמה במחשב שלו פגה');
           } catch (e) { toast(errMsg(e)); }
         }
+      }
+      // ואחר כך — עדכון בוואטסאפ: לכל נמען כפתור שפותח את הצ'אט שלו עם ההודעה מוכנה
+      if (update && info.wa && info.wa.recipients.length) {
+        const wa = info.wa;
+        const names = wa.recipients.map((x) => x.name).filter(Boolean).join(' ו');
+        const yes = await dialog({ title: 'לעדכן גם בוואטסאפ?', ok: 'כן, לעדכן', cancel: 'לא', body: <p>תיפתח הודעה מוכנה ב-WhatsApp אל {names || 'הנמענים'}.</p> });
+        if (yes) await dialog({ title: 'עדכון בוואטסאפ', ok: 'סיום', cancel: false, body: <WaSend wa={wa} /> });
       }
       await rv.reload();
       loadStatus();
@@ -330,7 +339,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
   const items: { key: AdminSection; title: string; sub: string; warn?: boolean; admin?: boolean }[] = [
     { key: 'review', title: 'הביקורת הפתוחה', sub: r ? `${typeLabel(r.type)} · ${r.session} · ${counts[NO_ANSWER]} לא ענו — SMS, פרטים וסגירה` : 'אין ביקורת פתוחה' },
     { key: 'sms', title: 'הודעות SMS', admin: true, sub: !st ? '…' : st.sms.testPhone ? `מצב בדיקה פעיל — רק ל-${st.sms.testPhone}` : st.sms.ready ? `מוגדר (${st.sms.username})` : 'עדיין לא מוגדר', warn: !!st && (!st.sms.ready || !!st.sms.testPhone) },
-    { key: 'rosh', title: 'מסך ראש הישיבה', admin: true, sub: 'קישור קבוע, התראות ובקשות לביקורת' },
+    { key: 'rosh', title: 'מסך ראש הישיבה', admin: true, sub: 'קישור קבוע, התראות, וואטסאפ ובקשות לביקורת' },
     { key: 'db', title: 'מסד התלמידים והיסטוריה', admin: true, sub: !st ? '…' : [st.sheetsEmail ? 'מחובר' : 'לא מחובר', st.reviews.gaps?.length ? `חסרים מספרים ברצף` : `רצף תקין עד #${st.reviews.last_number ?? '—'}`].join(' · '), warn: !!st && (!st.sheetsEmail || !!st.reviews.gaps?.length) },
     { key: 'passwords', title: 'סיסמאות', admin: true, sub: !st ? '…' : st.passwords.user && st.passwords.admin ? 'סיסמת כניסה וסיסמת מנהל מוגדרות' : 'חסרה סיסמה', warn: !!st && !(st.passwords.user && st.passwords.admin) },
   ];
@@ -372,6 +381,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       ) : <div className="card"><p className="sub" style={{ margin: 0 }}>אין ביקורת פתוחה. ביקורת חדשה נפתחת ממסך הבית (לשונית ביקורת).</p></div>)}
       {user.admin && st && section === 'sms' && <div className="card"><SmsSection st={st} reload={reloadAll} /></div>}
       {user.admin && section === 'rosh' && <div className="card"><RoshLink /></div>}
+      {user.admin && section === 'rosh' && <div className="card"><WaRecipients /></div>}
       {user.admin && section === 'rosh' && (
         <div className="card">
           <h2>בקשות מראש הישיבה</h2>
@@ -482,6 +492,58 @@ function SmsSection({ st, reload }: { st: AdminStatus; reload: () => void }) {
           <div className="f" style={{ justifyContent: 'flex-end' }}><AsyncButton className="btn solid" disabled={!testPhone.trim()} onClick={() => setTest(true)}>הפעל מצב בדיקה</AsyncButton></div>
         </div>
       )}
+    </>
+  );
+}
+
+/** חלון שליחת העדכון בוואטסאפ: כפתור לכל נמען — פותח את הצ'אט שלו עם ההודעה כבר כתובה, נשאר רק ללחוץ "שלח" */
+function WaSend({ wa }: { wa: { text: string; recipients: { name: string; phone: string }[] } }) {
+  const [sent, setSent] = useState<number[]>([]);
+  const missing = wa.recipients.some((x) => !x.phone);
+  return (
+    <>
+      <p className="sub">לחיצה פותחת את WhatsApp עם ההודעה מוכנה. שולחים, חוזרים לכאן ולוחצים על הבא.</p>
+      <pre className="wa-preview">{wa.text}</pre>
+      <div className="wa-list">
+        {wa.recipients.map((x, i) => (
+          <a key={i} className={'btn ' + (sent.includes(i) ? 'ghost' : 'wa')} target="_blank" rel="noreferrer"
+            href={`https://wa.me/${x.phone}?text=${encodeURIComponent(wa.text)}`}
+            onClick={() => setSent((s) => (s.includes(i) ? s : [...s, i]))}>
+            {sent.includes(i) ? '✓ ' : ''}{x.phone ? `שליחה אל ${x.name || x.phone}` : `${x.name ? x.name + ' — ' : ''}בחירת צ'אט ב-WhatsApp`}
+          </a>
+        ))}
+      </div>
+      {missing && <p className="sub">כדי שההודעה תיפתח ישר בצ&apos;אט הנכון, שמור את מספרי הטלפון בניהול ← מסך ראש הישיבה.</p>}
+    </>
+  );
+}
+
+/** הנמענים לעדכון בוואטסאפ אחרי סגירת ביקורת */
+function WaRecipients() {
+  const { toast } = useUi();
+  const [list, setList] = useState<{ name: string; phone: string }[] | null>(null);
+  useEffect(() => { api<{ recipients: { name: string; phone: string }[] }>('/api/admin/whatsapp').then((r) => setList(r.recipients)).catch(() => setList([])); }, []);
+  const set = (i: number, k: 'name' | 'phone', v: string) => setList((l) => l!.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+  const save = async () => {
+    try { const r = await api<{ recipients: { name: string; phone: string }[] }>('/api/admin/whatsapp', { body: { recipients: list } }); setList(r.recipients); toast('נשמר'); }
+    catch (e) { toast(errMsg(e)); }
+  };
+  if (!list) return <p className="sub">טוען…</p>;
+  return (
+    <>
+      <h2>עדכון בוואטסאפ אחרי ביקורת</h2>
+      <p className="sub">אחרי סגירת ביקורת (ואישור ההתראה) תישאל אם לעדכן גם בוואטסאפ. לכל אחד מהם תיפתח הודעה מוכנה ישר בצ&apos;אט שלו.</p>
+      {list.map((x, i) => (
+        <div key={i} className="wa-row">
+          <label className="f">שם<input value={x.name} maxLength={40} onChange={(e) => set(i, 'name', e.target.value)} /></label>
+          <label className="f">טלפון<input value={x.phone} maxLength={20} inputMode="tel" dir="ltr" placeholder="050-0000000" onChange={(e) => set(i, 'phone', e.target.value)} /></label>
+          <button className="btn ghost wa-del" onClick={() => setList((l) => l!.filter((_, j) => j !== i))} aria-label={`הסרת ${x.name || 'נמען'}`}>✕</button>
+        </div>
+      ))}
+      <div className="actions">
+        <AsyncButton className="btn solid" onClick={save}>שמירה</AsyncButton>
+        {list.length < 6 && <button className="btn ghost" onClick={() => setList((l) => [...l!, { name: '', phone: '' }])}>+ נמען</button>}
+      </div>
     </>
   );
 }

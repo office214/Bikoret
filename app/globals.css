@@ -700,3 +700,12 @@ body:has(.list-wrap.has-alpha) .stu.fbar { padding-inline-end: 8px; margin-inlin
 }
 .fbar .seg button.na[aria-pressed="true"] { background: var(--na-bg); border-color: var(--na-line); box-shadow: inset 0 0 0 1px var(--na-line); color: var(--na-text); }
 .fbar [aria-pressed="true"] .n { color: inherit; }
+
+/* עדכון בוואטסאפ אחרי סגירת ביקורת */
+.wa-preview { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: .85em; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; margin: 8px 0; }
+.wa-list { display: grid; gap: 8px; }
+.wa-list .btn { width: 100%; }
+.wa-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-bottom: 8px; }
+.wa-row .f { min-width: 0; }
+.wa-row input { width: 100%; min-width: 0; box-sizing: border-box; }
+.wa-row .wa-del { width: 46px; padding: 0; }
