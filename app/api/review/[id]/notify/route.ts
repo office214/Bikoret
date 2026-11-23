@@ -2,7 +2,7 @@ import { body, handler, HttpError } from '@/lib/http';
 import { db, audit } from '@/lib/db';
 import { roshToken } from '@/lib/reviews';
 import { pushDevices, sendPush } from '@/lib/push';
-import { normalizePhone, waRecipients } from '@/lib/whatsapp';
+import { normalizePhone, waDirect, waRecipients } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ id: string }> };
@@ -36,7 +36,7 @@ export const GET = handler<Ctx>(async (req, user, { params }) => {
   const link = token ? `\nלפרטים: ${new URL(req.url).origin}/rosh/${token}` : '';
   const text = `${s.title}\n${s.line1}\n${s.line2}${link}`;
   const recipients = (await waRecipients()).map((x) => ({ name: x.name, phone: normalizePhone(x.phone) }));
-  return { devices, wa: { text, recipients } };
+  return { devices, wa: { text, recipients, direct: waDirect() } };
 });
 
 /** התראה לראש הישיבה על ביקורת שנסגרה (רק אחרי שמי שסגר אישר) */

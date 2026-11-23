@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, AsyncButton, errMsg, NO_ANSWER, pctText, Result, STATUSES, TYPES, typeLabel, useUi, Warn } from './kit';
 import type { ReviewState } from './App';
-import { openWhatsApp, useSms } from './useSms';
+import { GroupWa, useSms } from './useSms';
 import { COUNT_OPTIONS, isLandscape, parseCount, PrintReport, REPORTS, type PrintCount, type PrintData } from './printReport';
 import { PushToggle } from './push';
 import { ADMIN_PUSH } from './requests';
@@ -291,7 +291,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       const res = await api<{ number: number; pct: string; passed: boolean }>(`/api/review/${r.id}/close`, { body: meta });
       toast(`ביקורת #${res.number} נשמרה — ${pctText(Number(res.pct))} · ${res.passed ? 'עובר' : 'נכשל'}`);
       // התראה לראש הישיבה — רק באישור (ביקורות ניסיון לא שולחים)
-      type Wa = { text: string; recipients: { name: string; phone: string }[] };
+      type Wa = { text: string; recipients: { name: string; phone: string }[]; direct?: boolean };
       const info = await api<{ devices: number; wa: Wa | null }>(`/api/review/${r.id}/notify`).catch(() => ({ devices: 0, wa: null }));
       let update = true; // כשאין מחשב רשום — שואלים ישר על וואטסאפ (שם אפשר לענות "לא")
       if (info.devices > 0) {
@@ -310,8 +310,10 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       if (update && info.wa && info.wa.recipients.length) {
         const wa = info.wa;
         const names = wa.recipients.map((x) => x.name).filter(Boolean).join(' ו');
-        const yes = await dialog({ title: 'לעדכן גם בוואטסאפ?', ok: 'כן, לעדכן', cancel: 'לא', body: <p>תיפתח הודעה מוכנה ב-WhatsApp אל {names || 'הנמענים'}.</p> });
-        if (yes) await dialog({ title: 'עדכון בוואטסאפ', ok: 'סיום', cancel: false, body: <WaSend wa={wa} /> });
+        const yes = await dialog({ title: 'לעדכן גם בוואטסאפ?', ok: 'כן, לעדכן', cancel: 'לא', body: wa.direct
+          ? <p>תישלח הודעה אישית ל{names || 'נמענים'}, ישר מהמספר של מזכירות הגבוהה — אחת אחרי השנייה, בהפרש של כמה שניות.</p>
+          : <p>תיפתח הודעה מוכנה ב-WhatsApp אל {names || 'הנמענים'}.</p> });
+        if (yes) await dialog({ title: 'עדכון בוואטסאפ', ok: 'סיום', cancel: false, body: wa.direct ? <WaDirectSend reviewId={r.id} wa={wa} /> : <WaSend wa={wa} /> });
       }
       await rv.reload();
       loadStatus();
@@ -359,7 +361,7 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
             <div className="actions">
               <AsyncButton className="btn solid" busyText="שולח…" onClick={() => sms('start', counts[NO_ANSWER])}>סמס התחלה</AsyncButton>
               <AsyncButton className="btn" busyText="שולח…" onClick={() => sms('noanswer', counts[NO_ANSWER])}>סמס לא ענו</AsyncButton>
-              <button className="btn wa" disabled={!rv.groupText} onClick={() => openWhatsApp(rv.groupText)}>הודעה לקבוצת הוואטסאפ</button>
+              <GroupWa reviewId={r.id} text={rv.groupText} />
             </div>
           </div>
 
@@ -518,31 +520,106 @@ function WaSend({ wa }: { wa: { text: string; recipients: { name: string; phone:
   );
 }
 
+/** עדכון ישיר: הודעה אישית לכל נמען, אחד אחרי השני (אפליקציית המזכירות מרווחת ביניהן); מי שנכשל — כפתור ידני */
+function WaDirectSend({ reviewId, wa }: { reviewId: number; wa: { text: string; recipients: { name: string; phone: string }[] } }) {
+  const [st, setSt] = useState<('wait' | 'busy' | 'ok' | string)[]>(() => wa.recipients.map(() => 'wait'));
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      for (let i = 0; i < wa.recipients.length && !off; i++) {
+        setSt((s) => s.map((v, j) => (j === i ? 'busy' : v)));
+        try { await api(`/api/review/${reviewId}/wa`, { body: { kind: 'update', index: i } }); setSt((s) => s.map((v, j) => (j === i ? 'ok' : v))); }
+        catch (e) { const m = errMsg(e); setSt((s) => s.map((v, j) => (j === i ? m : v))); }
+      }
+    })();
+    return () => { off = true; };
+  }, [reviewId, wa.recipients]);
+  return (
+    <>
+      <p className="sub">כל אחד מקבל הודעה אישית עם הסיכום והקישור. בין הודעה להודעה יש הפסקה קצרה — זה בכוונה.</p>
+      <div className="wa-list">
+        {wa.recipients.map((x, i) => {
+          const s = st[i];
+          if (s === 'ok') return <div key={i} className="btn ghost">✓ נשלח אל {x.name || x.phone}</div>;
+          if (s === 'busy') return <div key={i} className="btn ghost" aria-busy>שולח אל {x.name || x.phone}…</div>;
+          if (s === 'wait') return <div key={i} className="btn ghost">ממתין: {x.name || x.phone}</div>;
+          return (
+            <a key={i} className="btn wa" target="_blank" rel="noreferrer" href={`https://wa.me/${x.phone}?text=${encodeURIComponent(wa.text)}`}>
+              ✗ {x.name || x.phone}: {s} — שליחה ידנית
+            </a>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 /** הנמענים לעדכון בוואטסאפ אחרי סגירת ביקורת */
 function WaRecipients() {
   const { toast } = useUi();
-  const [list, setList] = useState<{ name: string; phone: string }[] | null>(null);
-  useEffect(() => { api<{ recipients: { name: string; phone: string }[] }>('/api/admin/whatsapp').then((r) => setList(r.recipients)).catch(() => setList([])); }, []);
-  const set = (i: number, k: 'name' | 'phone', v: string) => setList((l) => l!.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+  type R = { name: string; phone: string; greet?: string };
+  type G = { id: string; name: string };
+  const [list, setList] = useState<R[] | null>(null);
+  const [direct, setDirect] = useState(false);
+  const [group, setGroup] = useState<G | null>(null);
+  const [groups, setGroups] = useState<G[] | null>(null);
+  const [gErr, setGErr] = useState('');
+  useEffect(() => {
+    api<{ recipients: R[]; group: G | null; direct: boolean }>('/api/admin/whatsapp')
+      .then((r) => { setList(r.recipients); setGroup(r.group); setDirect(r.direct); }).catch(() => setList([]));
+  }, []);
+  const loadGroups = async (fresh = false) => {
+    setGErr('');
+    try { const r = await api<{ groups?: G[]; groupsError?: string }>(`/api/admin/whatsapp?groups=${fresh ? 'fresh' : '1'}`); setGroups(r.groups || []); setGErr(r.groupsError || ''); }
+    catch (e) { setGErr(errMsg(e)); }
+  };
+  const set = (i: number, k: keyof R, v: string) => setList((l) => l!.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const save = async () => {
-    try { const r = await api<{ recipients: { name: string; phone: string }[] }>('/api/admin/whatsapp', { body: { recipients: list } }); setList(r.recipients); toast('נשמר'); }
+    try { const r = await api<{ recipients: R[]; group: G | null }>('/api/admin/whatsapp', { body: { recipients: list, group } }); setList(r.recipients); setGroup(r.group); toast('נשמר'); }
     catch (e) { toast(errMsg(e)); }
   };
   if (!list) return <p className="sub">טוען…</p>;
   return (
     <>
-      <h2>עדכון בוואטסאפ אחרי ביקורת</h2>
-      <p className="sub">אחרי סגירת ביקורת (ואישור ההתראה) תישאל אם לעדכן גם בוואטסאפ. לכל אחד מהם תיפתח הודעה מוכנה ישר בצ&apos;אט שלו.</p>
+      <h2>וואטסאפ</h2>
+      <p className="sub">{direct
+        ? 'ההודעות יוצאות ישר מהמספר של מזכירות הגבוהה (דרך אפליקציית המזכירות): אחת בכל פעם, בהפרש של כמה שניות, וכל הודעה אישית.'
+        : 'וואטסאפ ישיר עוד לא מחובר — ההודעות נפתחות ב-WhatsApp ושולחים ידנית.'}</p>
+
+      <h3 style={{ margin: '16px 0 4px', fontSize: '1em' }}>קבוצה להודעת פתיחת ביקורת</h3>
+      {direct ? (
+        <>
+          <p className="sub">נבחרה: <b>{group?.name || 'עוד לא נבחרה'}</b></p>
+          {groups === null
+            ? <AsyncButton className="btn" onClick={() => loadGroups()}>בחירת קבוצה</AsyncButton>
+            : (
+              <div className="grid">
+                <label className="f">קבוצה
+                  <select value={group?.id || ''} onChange={(e) => setGroup(groups.find((g) => g.id === e.target.value) || null)}>
+                    <option value="">— בחירה —</option>
+                    {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
+                </label>
+                <div className="f" style={{ justifyContent: 'flex-end' }}><AsyncButton className="btn ghost" onClick={() => loadGroups(true)}>רענון הרשימה</AsyncButton></div>
+              </div>
+            )}
+          {gErr && <p className="warn-ic">⚠ {gErr}</p>}
+        </>
+      ) : <p className="sub">בלי חיבור ישיר בוחרים את הקבוצה ב-WhatsApp בכל פעם.</p>}
+
+      <h3 style={{ margin: '16px 0 4px', fontSize: '1em' }}>עדכון אחרי סגירת ביקורת</h3>
+      <p className="sub">אחרי סגירת ביקורת (ואישור ההתראה) תישאל אם לעדכן גם בוואטסאפ. כל אחד מקבל הודעה אישית: הפתיחה שלו, הסיכום והקישור. בפתיחה אפשר לכתוב {'{n}'} במקום מספר הביקורת; ריק = פתיחה אוטומטית לפי השם.</p>
       {list.map((x, i) => (
         <div key={i} className="wa-row">
           <label className="f">שם<input value={x.name} maxLength={40} onChange={(e) => set(i, 'name', e.target.value)} /></label>
           <label className="f">טלפון<input value={x.phone} maxLength={20} inputMode="tel" dir="ltr" placeholder="050-0000000" onChange={(e) => set(i, 'phone', e.target.value)} /></label>
           <button className="btn ghost wa-del" onClick={() => setList((l) => l!.filter((_, j) => j !== i))} aria-label={`הסרת ${x.name || 'נמען'}`}>✕</button>
+          <label className="f" style={{ gridColumn: '1 / -1' }}>פתיחה<input value={x.greet || ''} maxLength={200} placeholder={/ניר/.test(x.name) ? 'שלום הרב ניר, מה נשמע? שלחתי לך עכשיו את התוצאות של ביקורת #{n}…' : /יצחק/.test(x.name) ? 'שלום הרב, שלחתי לרב עכשיו את ביקורת #{n} שסגרתי.' : 'פתיחה אוטומטית לפי השם'} onChange={(e) => set(i, 'greet', e.target.value)} /></label>
         </div>
       ))}
       <div className="actions">
         <AsyncButton className="btn solid" onClick={save}>שמירה</AsyncButton>
-        {list.length < 6 && <button className="btn ghost" onClick={() => setList((l) => [...l!, { name: '', phone: '' }])}>+ נמען</button>}
+        {list.length < 6 && <button className="btn ghost" onClick={() => setList((l) => [...l!, { name: '', phone: '', greet: '' }])}>+ נמען</button>}
       </div>
     </>
   );
