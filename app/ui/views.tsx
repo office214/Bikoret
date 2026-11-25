@@ -547,7 +547,7 @@ function WaDirectSend({ reviewId, wa }: { reviewId: number; wa: { text: string; 
           if (s === 'wait') return <div key={i} className="btn ghost">ממתין: {x.name || x.phone}</div>;
           return (
             <a key={i} className="btn wa" target="_blank" rel="noreferrer" href={`https://wa.me/${x.phone}?text=${encodeURIComponent(wa.text)}`}>
-              ✗ {x.name || x.phone}: {s} — שליחה ידנית
+              ✗ {x.name || x.phone} — שליחה ידנית<span className="btn-sub">{s}</span>
             </a>
           );
         })}

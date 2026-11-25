@@ -37,7 +37,8 @@ export function GroupWa({ reviewId, text, close, className = 'btn wa', label = '
   return (
     <button type="button" className={className + (state === 'sent' ? ' ghost' : '')} style={close ? { marginTop: 14, width: '100%' } : undefined}
       disabled={!text || !cfg || state === 'busy' || state === 'sent'} aria-busy={state === 'busy'} onClick={go}>
-      {state === 'busy' ? 'שולח…' : state === 'sent' ? (cfg?.test ? '✓ נשלח למספר הבדיקה' : `✓ נשלח לקבוצה`) : direct ? (cfg!.test ? `${label} – בדיקה: רק ל-${cfg!.test}` : `${label} (${cfg!.group})`) : label}
+      {state === 'busy' ? 'שולח…' : state === 'sent' ? (cfg?.test ? '✓ נשלח למספר הבדיקה' : '✓ נשלח לקבוצה') : label}
+      {state !== 'busy' && state !== 'sent' && direct && <span className="btn-sub">{cfg!.test ? `בדיקה: רק למספר הבדיקה` : cfg!.group}</span>}
     </button>
   );
 }
