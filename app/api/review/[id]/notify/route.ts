@@ -1,3 +1,5 @@
+import { SMS_TEST_KEY } from '@/lib/reviews';
+import { getSetting } from '@/lib/secure';
 import { body, handler, HttpError } from '@/lib/http';
 import { db, audit } from '@/lib/db';
 import { roshToken } from '@/lib/reviews';
@@ -35,8 +37,10 @@ export const GET = handler<Ctx>(async (req, user, { params }) => {
   const token = await roshToken(false, user.email);
   const link = token ? `\nלפרטים: ${new URL(req.url).origin}/rosh/${token}` : '';
   const text = `${s.title}\n${s.line1}\n${s.line2}${link}`;
-  const recipients = (await waRecipients()).map((x) => ({ name: x.name, phone: normalizePhone(x.phone) }));
-  return { devices, wa: { text, recipients, direct: waDirect() } };
+  // מצב בדיקה: גם הקישורים הידניים נפתחים אל מספר הבדיקה בלבד
+  const testPhone = normalizePhone(String((await getSetting(SMS_TEST_KEY)) || ''));
+  const recipients = (await waRecipients()).map((x) => ({ name: x.name, phone: testPhone || normalizePhone(x.phone) }));
+  return { devices, wa: { text, recipients, direct: waDirect(), test: testPhone || null } };
 });
 
 /** התראה לראש הישיבה על ביקורת שנסגרה (רק אחרי שמי שסגר אישר) */

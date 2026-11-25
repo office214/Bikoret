@@ -521,7 +521,7 @@ function WaSend({ wa }: { wa: { text: string; recipients: { name: string; phone:
 }
 
 /** עדכון ישיר: הודעה אישית לכל נמען, אחד אחרי השני (אפליקציית המזכירות מרווחת ביניהן); מי שנכשל — כפתור ידני */
-function WaDirectSend({ reviewId, wa }: { reviewId: number; wa: { text: string; recipients: { name: string; phone: string }[] } }) {
+function WaDirectSend({ reviewId, wa }: { reviewId: number; wa: { text: string; recipients: { name: string; phone: string }[]; test?: string | null } }) {
   const [st, setSt] = useState<('wait' | 'busy' | 'ok' | string)[]>(() => wa.recipients.map(() => 'wait'));
   useEffect(() => {
     let off = false;
@@ -536,11 +536,13 @@ function WaDirectSend({ reviewId, wa }: { reviewId: number; wa: { text: string; 
   }, [reviewId, wa.recipients]);
   return (
     <>
-      <p className="sub">כל אחד מקבל הודעה אישית עם הסיכום והקישור. בין הודעה להודעה יש הפסקה קצרה — זה בכוונה.</p>
+      {wa.test
+        ? <p className="sub"><b>מצב בדיקה:</b> כל ההודעות נשלחות רק למספר הבדיקה ({wa.test}), עם ציון למי היו אמורות להגיע.</p>
+        : <p className="sub">כל אחד מקבל הודעה אישית עם הסיכום והקישור. בין הודעה להודעה יש הפסקה קצרה — זה בכוונה.</p>}
       <div className="wa-list">
         {wa.recipients.map((x, i) => {
           const s = st[i];
-          if (s === 'ok') return <div key={i} className="btn ghost">✓ נשלח אל {x.name || x.phone}</div>;
+          if (s === 'ok') return <div key={i} className="btn ghost">✓ {wa.test ? `נשלח למספר הבדיקה (במקום אל ${x.name || 'הנמען'})` : `נשלח אל ${x.name || x.phone}`}</div>;
           if (s === 'busy') return <div key={i} className="btn ghost" aria-busy>שולח אל {x.name || x.phone}…</div>;
           if (s === 'wait') return <div key={i} className="btn ghost">ממתין: {x.name || x.phone}</div>;
           return (

@@ -1,7 +1,8 @@
 import { body, handler, HttpError } from '@/lib/http';
 import { db, audit } from '@/lib/db';
 import { smsText } from '@/lib/sms';
-import { roshToken } from '@/lib/reviews';
+import { roshToken, SMS_TEST_KEY } from '@/lib/reviews';
+import { getSetting } from '@/lib/secure';
 import { greeting, normalizePhone, relaySend, waDirect, waGroup, waRecipients } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,7 @@ const typeLabel = (t: string) => t.replace(/^חיצונית/, 'ביקורת אמ
  *  kind 'group'  — הודעת פתיחת הביקורת לקבוצה שנבחרה בהגדרות
  *  kind 'update' — אחרי הסגירה: הודעה אישית לנמען אחד (index), עם הסיכום והקישור למסך ראש הישיבה.
  * הנמענים נשלחים אחד-אחד מהמסך; אפליקציית המזכירות מרווחת ביניהם כמה שניות.
+ * מצב בדיקה (של ה-SMS) חל גם כאן: כל הודעה הולכת רק למספר הבדיקה, עם ציון למי הייתה אמורה להגיע.
  */
 export const POST = handler<Ctx>(async (req, user, { params }) => {
   if (!waDirect()) throw new HttpError(409, 'וואטסאפ ישיר לא מוגדר');
@@ -23,15 +25,20 @@ export const POST = handler<Ctx>(async (req, user, { params }) => {
   const sql = await db();
   const [r] = await sql`select number, type, date_heb, time, pct::float as pct, passed, chaser, lo_ana, nirsham, bishuv, status from reviews where id = ${id}`;
   if (!r) throw new HttpError(404, 'הביקורת לא נמצאה');
+  const testPhone = normalizePhone(String((await getSetting(SMS_TEST_KEY)) || ''));
+  const testNote = (who: string) => `🧪 מצב בדיקה – ההודעה הייתה אמורה להגיע אל: ${who}\n\n`;
 
   if (b.kind === 'group') {
     const g = await waGroup();
     if (!g) throw new HttpError(409, 'עוד לא נבחרה קבוצת וואטסאפ (ניהול ← מסך ראש הישיבה)');
     const text = smsText('start', 'HE', r.type, r.time);
-    try { await relaySend({ group: g.id }, text, `ביקורת – ${g.name}`); }
+    try {
+      if (testPhone) await relaySend({ phone: testPhone }, testNote(`הקבוצה "${g.name}"`) + text, 'ביקורת – בדיקה');
+      else await relaySend({ group: g.id }, text, `ביקורת – ${g.name}`);
+    }
     catch (e) { throw new HttpError(502, e instanceof Error ? e.message : String(e)); }
-    await audit(user.email, 'wa-group-sent', { reviewId: id, group: g.name });
-    return { ok: true, group: g.name };
+    await audit(user.email, testPhone ? 'wa-group-test' : 'wa-group-sent', { reviewId: id, group: g.name });
+    return { ok: true, group: g.name, test: testPhone || undefined };
   }
 
   if (r.status !== 'closed') throw new HttpError(409, 'הביקורת עוד לא נסגרה');
@@ -50,14 +57,17 @@ export const POST = handler<Ctx>(async (req, user, { params }) => {
     `חסר ${r.chaser} · לא ענה ${r.lo_ana} · נרשם ${r.nirsham} · בישוב ${r.bishuv}`,
     ...(token ? ['', `${new URL(req.url).origin}/rosh/${token}`] : []),
   ];
-  try { await relaySend({ phone }, lines.join('\n'), x.name); }
+  try {
+    if (testPhone) await relaySend({ phone: testPhone }, testNote(x.name || phone) + lines.join('\n'), `${x.name} – בדיקה`);
+    else await relaySend({ phone }, lines.join('\n'), x.name);
+  }
   catch (e) { throw new HttpError(502, e instanceof Error ? e.message : String(e)); }
-  await audit(user.email, 'wa-update-sent', { reviewId: id, number: r.number, to: x.name });
-  return { ok: true };
+  await audit(user.email, testPhone ? 'wa-update-test' : 'wa-update-sent', { reviewId: id, number: r.number, to: x.name });
+  return { ok: true, test: testPhone || undefined };
 });
 
 /** מה מוגדר: וואטסאפ ישיר, שם הקבוצה */
 export const GET = handler<Ctx>(async () => {
   const g = await waGroup();
-  return { direct: waDirect(), group: g?.name || null };
+  return { direct: waDirect(), group: g?.name || null, test: normalizePhone(String((await getSetting(SMS_TEST_KEY)) || '')) || null };
 });

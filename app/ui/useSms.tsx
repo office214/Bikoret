@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { api, errMsg, useUi, Warn } from './kit';
 
 /** פותח את וואטסאפ עם ההודעה מוכנה — בוחרים את הקבוצה ולוחצים שלח */
-export function openWhatsApp(text: string) {
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+export function openWhatsApp(text: string, phone?: string | null) {
+  window.open(`https://wa.me/${(phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
 /**
@@ -16,28 +16,28 @@ export function GroupWa({ reviewId, text, close, className = 'btn wa', label = '
   reviewId?: number; text: string; close?: (v: unknown) => void; className?: string; label?: string;
 }) {
   const { toast } = useUi();
-  const [cfg, setCfg] = useState<{ direct: boolean; group: string | null } | null>(null);
+  const [cfg, setCfg] = useState<{ direct: boolean; group: string | null; test?: string | null } | null>(null);
   const [state, setState] = useState<'' | 'busy' | 'sent' | 'failed'>('');
   useEffect(() => {
     if (!reviewId) { setCfg({ direct: false, group: null }); return; }
-    api<{ direct: boolean; group: string | null }>(`/api/review/${reviewId}/wa`).then(setCfg).catch(() => setCfg({ direct: false, group: null }));
+    api<{ direct: boolean; group: string | null; test?: string | null }>(`/api/review/${reviewId}/wa`).then(setCfg).catch(() => setCfg({ direct: false, group: null }));
   }, [reviewId]);
   const direct = !!(cfg?.direct && cfg.group);
   const go = async () => {
-    if (!direct) { openWhatsApp(text); close?.(true); return; }
+    if (!direct) { openWhatsApp(text, cfg?.test); close?.(true); return; }   // מצב בדיקה: נפתח אל מספר הבדיקה
     setState('busy');
     try {
       await api(`/api/review/${reviewId}/wa`, { body: { kind: 'group' } });
-      setState('sent'); toast(`נשלח לקבוצה "${cfg!.group}" ✓`);
+      setState('sent'); toast(cfg!.test ? `מצב בדיקה: נשלח רק למספר הבדיקה ${cfg!.test} ✓` : `נשלח לקבוצה "${cfg!.group}" ✓`);
     } catch (e) {
       setState('failed');
-      toast(`${errMsg(e)} — אפשר לשלוח ידנית`, { label: 'פתיחה ב-WhatsApp', run: () => openWhatsApp(text) });
+      toast(`${errMsg(e)} — אפשר לשלוח ידנית`, { label: 'פתיחה ב-WhatsApp', run: () => openWhatsApp(text, cfg?.test) });
     }
   };
   return (
     <button type="button" className={className + (state === 'sent' ? ' ghost' : '')} style={close ? { marginTop: 14, width: '100%' } : undefined}
       disabled={!text || !cfg || state === 'busy' || state === 'sent'} aria-busy={state === 'busy'} onClick={go}>
-      {state === 'busy' ? 'שולח לקבוצה…' : state === 'sent' ? `✓ נשלח לקבוצה` : direct ? `${label} (${cfg!.group})` : label}
+      {state === 'busy' ? 'שולח…' : state === 'sent' ? (cfg?.test ? '✓ נשלח למספר הבדיקה' : `✓ נשלח לקבוצה`) : direct ? (cfg!.test ? `${label} – בדיקה: רק ל-${cfg!.test}` : `${label} (${cfg!.group})`) : label}
     </button>
   );
 }
