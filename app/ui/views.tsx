@@ -565,17 +565,17 @@ function WaRecipients() {
   const [groups, setGroups] = useState<G[] | null>(null);
   const [gErr, setGErr] = useState('');
   useEffect(() => {
-    api<{ recipients: R[]; group: G | null; direct: boolean }>('/api/admin/whatsapp')
+    api<{ recipients: R[]; group: G | null; direct: boolean }>('/api/admin/notify-list')
       .then((r) => { setList(r.recipients); setGroup(r.group); setDirect(r.direct); }).catch(() => setList([]));
   }, []);
   const loadGroups = async (fresh = false) => {
     setGErr('');
-    try { const r = await api<{ groups?: G[]; groupsError?: string }>(`/api/admin/whatsapp?groups=${fresh ? 'fresh' : '1'}`); setGroups(r.groups || []); setGErr(r.groupsError || ''); }
+    try { const r = await api<{ groups?: G[]; groupsError?: string }>(`/api/admin/notify-list?g=${fresh ? 'fresh' : '1'}`); setGroups(r.groups || []); setGErr(r.groupsError || ''); }
     catch (e) { setGErr(errMsg(e)); }
   };
   const set = (i: number, k: keyof R, v: string) => setList((l) => l!.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const save = async () => {
-    try { const r = await api<{ recipients: R[]; group: G | null }>('/api/admin/whatsapp', { body: { recipients: list, group } }); setList(r.recipients); setGroup(r.group); toast('נשמר'); }
+    try { const r = await api<{ recipients: R[]; group: G | null }>('/api/admin/notify-list', { body: { recipients: list, group } }); setList(r.recipients); setGroup(r.group); toast('נשמר'); }
     catch (e) { toast(errMsg(e)); }
   };
   if (!list) return <p className="sub">טוען…</p>;
