@@ -290,11 +290,12 @@ export async function closeReview(reviewId: number, meta: { date_heb?: string; t
         count(*) filter (where status = 'נרשם')::int as nirsham
       from entries where review_id = ${reviewId}`;
     const pct = c.total ? (c.present + c.bishuv) / c.total : 0;
+    const test = !!(await getSetting(SMS_TEST_KEY)); // נסגרה במצב בדיקה
     const [{ next }] = await tx`select greatest(coalesce(max(number), 0) + 1, ${config.firstReviewNumber}::int) as next from reviews`;
     const [done] = await tx`
       update reviews set status = 'closed', number = ${next}, total = ${c.total}, present = ${c.present},
         bishuv = ${c.bishuv}, chaser = ${c.chaser}, lo_ana = ${c.lo_ana}, nirsham = ${c.nirsham},
-        pct = ${pct}, passed = ${pct >= config.passThreshold}, closed_at = now(), closed_by = ${user}
+        pct = ${pct}, passed = ${pct >= config.passThreshold}, test = ${test}, closed_at = now(), closed_by = ${user}
       where id = ${reviewId} returning *`;
     return done;
   });
@@ -394,7 +395,7 @@ export async function history() {
   const sql = await db();
   return sql`
     select id, number, session, type, date_heb, time, total, present, bishuv, chaser, lo_ana, nirsham,
-      pct::float as pct, passed, imported, closed_at, closed_by
+      pct::float as pct, passed, imported, test, closed_at, closed_by
     from reviews where status = 'closed' order by number desc`;
 }
 
@@ -443,7 +444,7 @@ export async function studentHistory(studentId: string) {
   return [...rows.map((r) => ({ ...r, number: r.number as number })), ...filled].sort((a, b) => b.number - a.number);
 }
 
-const REVIEW_COLS = 'id, number, date_heb, time, type, total, chaser, nirsham, bishuv, lo_ana, pct::float as pct, passed';
+const REVIEW_COLS = 'id, number, date_heb, time, type, total, chaser, nirsham, bishuv, lo_ana, pct::float as pct, passed, test';
 
 /** טבלת תלמידים × ביקורות: תלמידי הביקורת הפתוחה (או האחרונה שנסגרה), והסטטוס שלהם בכל ביקורת */
 async function studentTable(reviews: readonly { id?: unknown }[]) {

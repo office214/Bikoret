@@ -712,3 +712,9 @@ body:has(.list-wrap.has-alpha) .stu.fbar { padding-inline-end: 8px; margin-inlin
 .wa-row .f { min-width: 0; }
 .wa-row input { width: 100%; min-width: 0; box-sizing: border-box; }
 .wa-row .wa-del { width: 46px; padding: 0; }
+
+/* ביקורת שנסגרה במצב בדיקה */
+.tbadge { display: inline-block; margin-inline-start: 4px; padding: 0 5px; border-radius: 6px; font-size: .68em; font-weight: 700; line-height: 1.5; vertical-align: 1px; color: #7a4b00; background: #ffe9b8; border: 1px solid #e6c26a; white-space: nowrap; }
+:root[data-theme="dark"] .tbadge { color: #ffd98a; background: #3a2c0c; border-color: #7a6020; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tbadge { color: #ffd98a; background: #3a2c0c; border-color: #7a6020; } }
+@media print { .tbadge { color: #000; background: none; border-color: #000; } }

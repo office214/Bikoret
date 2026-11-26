@@ -4,7 +4,7 @@ import { pctText, Result, typeLabel } from './kit';
 
 /* דוח הדפסה אחד (שער / כללי / חסר / בישוב / נרשם) — משותף למסך ההדפסה ולמסך ראש הישיבה */
 
-type PrintReview = { id: number; number: number; date_heb: string; time: string; type: string; total: number; chaser: number; nirsham: number; bishuv: number; lo_ana: number; pct: number | null; passed: boolean | null };
+type PrintReview = { id: number; number: number; date_heb: string; time: string; type: string; total: number; chaser: number; nirsham: number; bishuv: number; lo_ana: number; pct: number | null; passed: boolean | null; test?: boolean };
 
 export type PrintData = { reviews: PrintReview[]; rows: { last: string; first: string; statuses: string[]; notes?: string[] }[]; zman?: string };
 
@@ -29,7 +29,7 @@ export const REPORTS = [
 
 export function PrintReport({ kind, data, landscape }: { kind: string; data: PrintData; landscape: boolean }) {
   const summary: [string, (r: PrintReview) => React.ReactNode][] = [
-    ['מס׳ ביקורת', (r) => r.number], ['תאריך', (r) => r.date_heb], ['שעה', (r) => r.time], ['סוג', (r) => typeLabel(r.type)],
+    ['מס׳ ביקורת', (r) => <>{r.number}{r.test && <span className="tbadge">בדיקה</span>}</>], ['תאריך', (r) => r.date_heb], ['שעה', (r) => r.time], ['סוג', (r) => typeLabel(r.type)],
     ['מס׳ תלמידים', (r) => r.total], ['חסר', (r) => r.chaser], ['נרשם', (r) => r.nirsham], ['סה״כ חסרים', (r) => r.chaser + r.nirsham],
     ['בישוב', (r) => r.bishuv], ['לא ענה', (r) => r.lo_ana], ['אחוז נוכחות', (r) => pctText(r.pct)], ['עובר/נכשל', (r) => <Result passed={r.passed} />],
   ];

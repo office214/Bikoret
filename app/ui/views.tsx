@@ -10,7 +10,7 @@ import { ADMIN_PUSH } from './requests';
 
 type HistRow = {
   id: number; number: number; session: string; type: string; date_heb: string; time: string; total: number; present: number;
-  bishuv: number; chaser: number; lo_ana: number; nirsham: number; pct: number | null; passed: boolean | null; imported: boolean;
+  bishuv: number; chaser: number; lo_ana: number; nirsham: number; pct: number | null; passed: boolean | null; imported: boolean; test?: boolean;
 };
 
 /* ======================= תוצאות ======================= */
@@ -30,7 +30,7 @@ export function HistoryView({ admin }: { admin: boolean }) {
       groups.get(e.status)!.push(`${e.last_name} ${e.first_name}` + (e.note ? ` (${e.note})` : ''));
     });
     const action = await dialog({
-      title: `ביקורת #${r.number} — ${r.date_heb}`, cancel: false, ok: 'סגור',
+      title: `ביקורת #${r.number} — ${r.date_heb}${r.test ? ' (מצב בדיקה)' : ''}`, cancel: false, ok: 'סגור',
       body: (close) => 'error' in data ? <p>{data.error}</p> : (
         <>
           <p className="sub">{[r.time, r.type, pctText(r.pct)].filter(Boolean).join(' · ')} · <Result passed={r.passed} /></p>
@@ -75,7 +75,7 @@ export function HistoryView({ admin }: { admin: boolean }) {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="click" tabIndex={0} onClick={() => open(r)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r); } }}>
-                    <td className="num">{r.number}</td><td>{r.date_heb}</td><td>{r.time}</td><td>{typeLabel(r.type)}</td>
+                    <td className="num">{r.number}{r.test && <span className="tbadge" title="נסגרה במצב בדיקה">בדיקה</span>}</td><td>{r.date_heb}</td><td>{r.time}</td><td>{typeLabel(r.type)}</td>
                     <td className="num">{r.total}</td><td className="num">{r.chaser}</td><td className="num">{r.nirsham}</td>
                     <td className="num">{r.bishuv}</td><td className="num">{r.lo_ana}</td>
                     <td className="num"><b>{pctText(r.pct)}</b></td><td><Result passed={r.passed} /></td>
@@ -288,8 +288,8 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
     if (!ok) return;
     try {
       await rv.waitSaved();
-      const res = await api<{ number: number; pct: string; passed: boolean }>(`/api/review/${r.id}/close`, { body: meta });
-      toast(`ביקורת #${res.number} נשמרה — ${pctText(Number(res.pct))} · ${res.passed ? 'עובר' : 'נכשל'}`);
+      const res = await api<{ number: number; pct: string; passed: boolean; test?: boolean }>(`/api/review/${r.id}/close`, { body: meta });
+      toast(`ביקורת #${res.number} נשמרה — ${pctText(Number(res.pct))} · ${res.passed ? 'עובר' : 'נכשל'}${res.test ? ' · סומנה כבדיקה' : ''}`);
       // התראה לראש הישיבה — רק באישור (ביקורות ניסיון לא שולחים)
       type Wa = { text: string; recipients: { name: string; phone: string }[]; direct?: boolean; test?: string | null };
       const info = await api<{ devices: number; wa: Wa | null }>(`/api/review/${r.id}/notify`).catch(() => ({ devices: 0, wa: null }));

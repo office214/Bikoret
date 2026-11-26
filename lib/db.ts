@@ -62,6 +62,8 @@ create table if not exists entries (
 );
 -- הערה קצרה לתלמיד "חסר" (למה לא נכח) — מוצגת במסך ובהדפסה
 alter table entries add column if not exists note text not null default '';
+-- ביקורת שנסגרה במצב בדיקה (מספר בדיקה ל-SMS/וואטסאפ היה מוגדר) — מסומנת "בדיקה" במסכים
+alter table reviews add column if not exists test boolean not null default false;
 create index if not exists entries_student on entries (student_id);
 create index if not exists entries_updated on entries (review_id, updated_at);
 

@@ -7,7 +7,7 @@ import { COUNT_OPTIONS, isLandscape, parseCount, PrintReport, REPORTS, type Prin
 
 type Review = {
   id: number; number: number; date_heb: string; time: string; type: string; total: number;
-  chaser: number; nirsham: number; bishuv: number; lo_ana: number; pct: number | null; passed: boolean | null;
+  chaser: number; nirsham: number; bishuv: number; lo_ana: number; pct: number | null; passed: boolean | null; test?: boolean;
 };
 type Data = { reviews: Review[]; rows: { id: string; last: string; first: string; statuses: string[]; notes: string[] }[]; zman: string };
 type Card = { kind: 'review'; col: number } | { kind: 'student'; id: string; name: string }
@@ -109,7 +109,7 @@ export default function RoshView({ token }: { token: string }) {
                     {data.reviews.map((r, j) => (
                       <th key={r.id} className="pcol rcol" onClick={() => openReview(j)}
                         {...(li === 0 ? { role: 'button', tabIndex: 0, 'aria-label': `פרטי ביקורת ${r.number}`, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReview(j); } } } : {})}>
-                        {li === 0 ? <span className="rlink">{get(r)}</span> : get(r)}
+                        {li === 0 ? <><span className="rlink">{get(r)}</span>{r.test && <span className="tbadge" title="נסגרה במצב בדיקה">בדיקה</span>}</> : get(r)}
                       </th>
                     ))}
                   </tr>
@@ -190,7 +190,7 @@ function ReviewCard({ data, col, onClose, onStudent }: { data: Data; col: number
       <section className="rcard" role="dialog" aria-modal="true" aria-label={`ביקורת ${r.number}`}>
         <header className="rcard-h">
           <div>
-            <h2>ביקורת #{r.number} · {typeLabel(r.type)}</h2>
+            <h2>ביקורת #{r.number} · {typeLabel(r.type)}{r.test && <span className="tbadge">מצב בדיקה</span>}</h2>
             <p className="rosh-sub">{r.date_heb} · {r.time} · {r.total} תלמידים</p>
             <p className="rosh-sub nowrap">
               {r.pct !== null && <>נוכחות <bdi dir="ltr">{pct(r.pct)}</bdi></>}
