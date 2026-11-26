@@ -49,6 +49,11 @@ export const POST = handler<Ctx>(async (req, user, { params }) => {
   const id = Number((await params).id);
   const s = await summary(id);
   if (!s) throw new HttpError(404, 'הביקורת לא נמצאה או שעוד לא נסגרה');
+  // מצב בדיקה: לא שולחים התראה למחשבים של ראש הישיבה
+  if (normalizePhone(String((await getSetting(SMS_TEST_KEY)) || ''))) {
+    await audit(user.email, 'notify-rosh-skipped-test', { reviewId: id, number: s.number });
+    return { sent: 0, failed: 0, test: true };
+  }
   const token = await roshToken(false, user.email);
   if (!token) throw new HttpError(400, 'עוד לא נוצר קישור לראש הישיבה');
   const res = await sendPush('rosh', { title: s.title, body: `${s.line1}\n${s.line2}`, url: `/rosh/${token}`, tag: `bikoret-${s.number}` });

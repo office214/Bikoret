@@ -291,10 +291,12 @@ export function AdminView({ user, rv, counts, goReview }: { user: { admin: boole
       const res = await api<{ number: number; pct: string; passed: boolean }>(`/api/review/${r.id}/close`, { body: meta });
       toast(`ביקורת #${res.number} נשמרה — ${pctText(Number(res.pct))} · ${res.passed ? 'עובר' : 'נכשל'}`);
       // התראה לראש הישיבה — רק באישור (ביקורות ניסיון לא שולחים)
-      type Wa = { text: string; recipients: { name: string; phone: string }[]; direct?: boolean };
+      type Wa = { text: string; recipients: { name: string; phone: string }[]; direct?: boolean; test?: string | null };
       const info = await api<{ devices: number; wa: Wa | null }>(`/api/review/${r.id}/notify`).catch(() => ({ devices: 0, wa: null }));
       let update = true; // כשאין מחשב רשום — שואלים ישר על וואטסאפ (שם אפשר לענות "לא")
-      if (info.devices > 0) {
+      // מצב בדיקה: לא שולחים התראה למחשב של ראש הישיבה (וגם לא שואלים)
+      if (info.wa?.test) toast('מצב בדיקה — לא נשלחה התראה למחשב של ראש הישיבה');
+      else if (info.devices > 0) {
         update = !!(await dialog({
           title: 'לשלוח התראה לראש הישיבה?', ok: 'שלח התראה', cancel: 'לא, זו ביקורת ניסיון',
           body: <p>תקפוץ אצלו התראה במחשב: <b>ביקורת #{res.number} נסגרה — {pctText(Number(res.pct))} · {res.passed ? 'עובר' : 'נכשל'}</b>. היא נשארת על המסך עד שהוא סוגר אותה.</p>,
